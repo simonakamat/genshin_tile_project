@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teyvat Tiles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0e1a;
+    --bg-2:#0d1220;
+    --panel:#131a2c;
+    --panel-2:#1a2338;
+    --line:#2a3350;
+    --gold:#e6c47a;
+    --gold-dim:#a9895a;
+    --text:#eae6d8;
+    --text-dim:#8d95ad;
+    --pyro:#ef7d3b;
+    --hydro:#3fb6e8;
+    --anemo:#5fd0bb;
+    --electro:#b98ee8;
+    --cryo:#8fd9f5;
+    --geo:#f0c75e;
+    --dendro:#a4d65e;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    padding:0;
+    height:100vh;
+    overflow:hidden;
+  }
+  body{
+    background:
+      radial-gradient(ellipse at 20% -10%, #1c2544 0%, transparent 55%),
+      radial-gradient(ellipse at 90% 0%, #241a35 0%, transparent 45%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    padding:6px 14px;
+    display:flex;
+    justify-content:center;
+  }
+  .wrap{
+    max-width:1600px;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    height:100%;
+  }
+
+  /* Ultra-compact Header */
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:5px;
+    margin-bottom:6px;
+    flex-shrink:0;
+  }
+  .titleblock h1{
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:20px;
+    margin:0;
+    background:linear-gradient(180deg,#f6e6ba,var(--gold) 60%,#c9a25c);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    display:inline-block;
+  }
+  .titleblock .eyebrow{
+    display:inline-block;
+    font-size:10px;
+    letter-spacing:.15em;
+    text-transform:uppercase;
+    color:var(--gold-dim);
+    margin-left:6px;
+    vertical-align:middle;
+  }
+
+  .headerbtns{display:flex;gap:6px;}
+  button.btn{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:11.5px;
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    padding:5px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  button.btn:hover{border-color:var(--gold-dim);background:#212b46;}
+  button.btn:active{transform:translateY(1px);}
+  button.btn:disabled{opacity:0.35;cursor:not-allowed;}
+  button.btn.primary{
+    background:linear-gradient(180deg,#f2d38f,#c99b4e);
+    color:#241705;
+    border:none;
+  }
+  button.btn.primary:hover{filter:brightness(1.08);}
+
+  /* Main 3-Column Layout */
+  .layout{
+    display:grid;
+    grid-template-columns:430px 1fr 240px;
+    gap:12px;
+    align-items:stretch;
+    flex:1;
+    min-height:0;
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:10px 12px;
+  }
+  .panel + .panel{margin-top:8px;}
+  .panel h3{
+    font-family:'Cinzel',serif;
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin:0 0 6px;
+  }
+
+  /* Left Column: Character Roster */
+  .roster-panel{
+    height:calc(100vh - 60px);
+    overflow:hidden;
+    padding:10px 12px;
+    display:flex;
+    flex-direction:column;
+  }
+  #inlineRoster{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    justify-content:space-between;
+    height:100%;
+  }
+  .elem-group{margin-bottom:0;}
+  .elem-group h4{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    margin:0 0 3px;
+    display:flex;
+    align-items:center;
+    gap:5px;
+  }
+  .elem-dot{width:6px;height:6px;border-radius:50%;display:inline-block;}
+  .chip-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:3px 4px;
+  }
+  .chip{
+    font-size:11px;
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    padding:2.5px 7px;
+    border-radius:12px;
+    line-height:1.15;
+    font-weight:500;
+    transition:background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  }
+  .chip.cleared{
+    background:#a4d65e !important;
+    color:#0b1f06 !important;
+    border-color:#8ec448 !important;
+    font-weight:700;
+  }
+
+  /* Center Column: Tile + Maximized 15x15 Board */
+  .board-col{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    min-height:0;
+  }
+  
+  .top-tile-bar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:4px 16px;
+    margin-bottom:6px;
+    box-shadow:0 3px 12px rgba(0,0,0,0.3);
+    flex-shrink:0;
+  }
+  .top-tile-bar .lbl{
+    font-family:'Cinzel',serif;
+    font-size:12px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--gold);
+    font-weight:700;
+  }
+  .current-tile{
+    width:42px;
+    height:42px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:24px;
+    background:linear-gradient(180deg,#2c3860,#1a2340);
+    border:1.5px solid var(--gold);
+    border-radius:6px;
+    color:var(--gold);
+    box-shadow:0 0 16px rgba(230,196,122,.35);
+  }
+  .top-tile-bar .hint{font-size:11px;color:var(--text-dim);}
+
+  /* Viewport scaling calculation to fit 15x15 */
+  #board{
+    display:grid;
+    --cell-size: clamp(16px, calc((100vh - 120px) / 15), 36px);
+    grid-template-columns:repeat(15, var(--cell-size));
+    grid-template-rows:repeat(15, var(--cell-size));
+    gap:3px;
+    background:var(--bg-2);
+    border:1.5px solid var(--line);
+    border-radius:8px;
+    padding:6px;
+    box-shadow:inset 0 0 35px rgba(0,0,0,.5);
+    flex-shrink:0;
+  }
+  .tile{
+    aspect-ratio:1/1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:calc(var(--cell-size) * 0.52);
+    border-radius:4px;
+    background:linear-gradient(180deg,#212a44,#171e33);
+    border:1px solid #313d5e;
+    color:var(--gold);
+    cursor:default;
+    user-select:none;
+  }
+  .tile.empty{background:#0d1220;border:1px dashed #232c46;cursor:pointer;}
+  .tile.empty:hover{border-color:var(--gold-dim);background:#141b30;}
+  .tile.clearing{animation:pulseClear .5s ease-out forwards;}
+
+  @keyframes pulseClear{
+    0%{transform:scale(1);}
+    40%{transform:scale(1.18);box-shadow:0 0 18px 4px var(--clear-color,#e6c47a);}
+    100%{transform:scale(.2);opacity:0;}
+  }
+
+  /* Right Column: Score & Log */
+  .score-panel{
+    padding:10px 12px;
+  }
+  .score-panel .score-big{
+    font-family:'Cinzel',serif;
+    font-size:32px;
+    font-weight:700;
+    color:var(--gold);
+    line-height:1;
+    margin-bottom:2px;
+  }
+  .score-panel .score-label{
+    font-size:10px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:8px;
+  }
+  .stat-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:11.5px;
+    color:var(--text-dim);
+    margin-bottom:5px;
+    padding-bottom:3px;
+    border-bottom:1px dashed rgba(42,51,80,0.6);
+  }
+  .stat-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+  .stat-row span.val{color:var(--text);font-weight:600;}
+
+  .log{list-style:none;margin:0;padding:0;max-height:calc(100vh - 275px);overflow-y:auto;}
+  .log li{
+    font-size:11px;
+    padding:4px 0;
+    border-bottom:1px dashed var(--line);
+    display:flex;
+    gap:5px;
+    align-items:baseline;
+    color:var(--text-dim);
+  }
+  .log li:last-child{border-bottom:none;}
+  .log .dot{width:6px;height:6px;border-radius:50%;flex:none;}
+  .log .name{color:var(--text);font-weight:600;}
+  .log .pts{margin-left:auto;color:var(--gold);font-weight:700;}
+  .log-empty{font-size:11px;color:var(--text-dim);font-style:italic;}
+
+  .float-msg{
+    position:fixed;
+    top:50px;
+    left:50%;
+    transform:translateX(-50%);
+    background:var(--panel-2);
+    border:1px solid var(--gold-dim);
+    color:var(--gold);
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    padding:6px 16px;
+    border-radius:20px;
+    font-size:13px;
+    letter-spacing:.04em;
+    box-shadow:0 6px 18px rgba(0,0,0,.4);
+    opacity:0;
+    pointer-events:none;
+    z-index:50;
+    transition:opacity .25s, transform .25s;
+  }
+  .float-msg.show{opacity:1;transform:translateX(-50%) translateY(6px);}
+
+  /* Modals */
+  .overlay{
+    position:fixed;inset:0;
+    background:rgba(5,7,14,.85);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    padding:16px;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:20px;
+    max-width:520px;
+    width:100%;
+    max-height:85vh;
+    overflow-y:auto;
+  }
+  .modal h2{
+    font-family:'Cinzel',serif;
+    color:var(--gold);
+    margin:0 0 4px;
+    font-size:18px;
+  }
+  .modal p.sub{color:var(--text-dim);font-size:12px;margin:0 0 12px;}
+  .modal .close-row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+
+  .leaderboard-table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:6px;
+    font-size:12px;
+  }
+  .leaderboard-table th, .leaderboard-table td{
+    padding:6px 8px;
+    text-align:left;
+    border-bottom:1px solid var(--line);
+  }
+  .leaderboard-table th{
+    color:var(--gold);
+    font-family:'Cinzel',serif;
+    font-size:10px;
+    text-transform:uppercase;
+  }
+  .rank-1{color:#ffd700;font-weight:700;}
+  .rank-2{color:#c0c0c0;font-weight:700;}
+  .rank-3{color:#cd7f32;font-weight:700;}
+
+  .go-stats{margin:10px 0;font-size:12.5px;}
+  .go-stats div{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="titleblock">
+      <h1>Teyvat Tiles</h1>
+      <div class="eyebrow">15×15 Board</div>
+    </div>
+    <div class="headerbtns">
+      <button class="btn" id="btnLeaderboard">Leaderboard</button>
+      <button class="btn" id="btnUndo" disabled>Undo Placement</button>
+      <button class="btn primary" id="btnNew">New Game</button>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <div class="side left">
+      <div class="panel roster-panel">
+        <h3>Character Roster</h3>
+        <div id="inlineRoster"></div>
+      </div>
+    </div>
+
+    <div class="board-col">
+      <div class="top-tile-bar">
+        <span class="lbl">Current Tile:</span>
+        <div id="currentTileEl" class="current-tile"></div>
+        <span class="hint">Click any empty cell on the board</span>
+      </div>
+      <div id="board"></div>
+    </div>
+
+    <div class="side right">
+      <div class="panel score-panel">
+        <div class="score-big" id="scoreVal">0</div>
+        <div class="score-label">Score</div>
+        <div class="stat-row"><span>Names cleared</span><span class="val" id="statCleared">0</span></div>
+        <div class="stat-row"><span>Best combo</span><span class="val" id="statCombo">×1</span></div>
+        <div class="stat-row" style="align-items:center; margin-top:8px;">
+          <span>Tile Distribution</span>
+          <select id="selTileMode" style="background:var(--panel-2); color:var(--gold); border:1px solid var(--line); border-radius:4px; font-size:11px; padding:2px 6px;">
+            <option value="weighted" selected>Weighted Random</option>
+            <option value="uniform">Fully Random</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel" style="flex:1;">
+        <h3>Activity Log</h3>
+        <ul class="log" id="logList"></ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="float-msg" id="floatMsg"></div>
+
+<div class="overlay" id="lbOverlay">
+  <div class="modal">
+    <h2>Global Leaderboard</h2>
+    <p class="sub">Highest registered scores on the 15×15 board.</p>
+    <table class="leaderboard-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Player</th>
+          <th>Score</th>
+          <th>Cleared</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody id="lbBody"></tbody>
+    </table>
+    <div class="close-row">
+      <button class="btn" id="btnClearLb">Reset Scores</button>
+      <button class="btn primary" id="btnCloseLb">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="goOverlay">
+  <div class="modal">
+    <h2>Board Full — Game Over</h2>
+    <p class="sub">No moves remain! Your final score was logged to the leaderboard.</p>
+    <div class="go-stats">
+      <div><span>Final score</span><span id="goScore">0</span></div>
+      <div><span>Names cleared</span><span id="goCleared">0</span></div>
+      <div><span>Best combo</span><span id="goCombo">×1</span></div>
+    </div>
+    <div class="close-row">
+      <button class="btn" id="btnGoViewLb">View Leaderboard</button>
+      <button class="btn primary" id="btnRestart">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- Character Database ---------------- */
+const RAW_CHARS = [
+  // Pyro (18)
+  ["Amber","pyro"],["Bennett","pyro"],["Diluc","pyro"],["Klee","pyro"],["Xiangling","pyro"],
+  ["Xinyan","pyro"],["Hu Tao","pyro"],["Yanfei","pyro"],["Yoimiya","pyro"],["Thoma","pyro"],
+  ["Dehya","pyro"],["Lyney","pyro"],["Chevreuse","pyro"],["Gaming","pyro"],["Arlecchino","pyro"],
+  ["Nicole","pyro"],["Durin","pyro"],["Mavuika","pyro"],
+
+  // Hydro (16/17)
+  ["Ayato","hydro"],["Yelan","hydro"],["Candace","hydro"],["Barbara","hydro"],["Nilou","hydro"],["Neuvillette","hydro"],
+  ["Kokomi","hydro"], ["Childe / Tartaglia","hydro"], ["Aino","hydro"],["Furina","hydro"],["Sigewinne","hydro"],
+  ["Mualani","hydro"],["Dahlia","hydro"],["Columbina","hydro"], ["Xingqiu","hydro"], ["Mona","hydro"],
+
+  // Anemo (18)
+  ["Jean","anemo"],["Venti","anemo"],["Sucrose","anemo"],["Xiao","anemo"],["Kazuha","anemo"],
+  ["Sayu","anemo"],["Heizou","anemo"],["Faruzan","anemo"],["Wanderer","anemo"],["Lynette","anemo"],
+  ["Xianyun","anemo"],["Chasca","anemo"],["Mizuki","anemo"],["Lan Yan","anemo"],["Prune","anemo"],
+  ["Varka","anemo"],["Ifa","anemo"],["Jahoda","anemo"],
+
+  // Electro (19/20)
+  ["Lisa","electro"],["Razor","electro"],["Beidou","electro"],["Fischl","electro"],["Keqing","electro"],
+  ["Raiden","electro"],["Sara","electro"],["Yae Miko","electro"],["Kuki / Shinobu","electro"],["Dori","electro"],
+  ["Cyno","electro"],["Clorinde","electro"],["Sethos","electro"],["Ororon","electro"],["Iansan","electro"],
+  ["Alyosha","electro"],["Flins","electro"],["Varesa","electro"],["Ineffa","electro"],
+
+  // Cryo (21)
+  ["Kaeya","cryo"],["Chongyun","cryo"],["Qiqi","cryo"],["Diona","cryo"],["Ganyu","cryo"],
+  ["Rosaria","cryo"],["Eula","cryo"],["Ayaka","cryo"],["Aloy","cryo"],["Shenhe","cryo"],
+  ["Layla","cryo"],["Mika","cryo"],["Freminet","cryo"],["Wriothesley","cryo"],["Charlotte","cryo"],
+  ["Citlali","cryo"],["Odette","cryo"],["Escoffier","cryo"],["Lohen","cryo"],["Sandrone","cryo"],["Skirk","cryo"],
+
+  // Geo (14)
+  ["Ningguang","geo"],["Noelle","geo"],["Zhongli","geo"],["Albedo","geo"],["Yunjin","geo"],
+  ["Itto","geo"],["Gorou","geo"],["Navia","geo"],["Chiori","geo"],["Kachina","geo"],["Xilonen","geo"],
+  ["Zibai","geo"],["Illuga","geo"],["Linnea","geo"],
+
+  // Dendro (12)
+  ["Tighnari","dendro"],["Collei","dendro"],["Nahida","dendro"],["Alhaitham","dendro"],
+  ["Yaoyao","dendro"],["Baizhu","dendro"],["Kaveh","dendro"],["Kirara","dendro"],
+  ["Emilie","dendro"],["Kinich","dendro"],["Lauma","dendro"],["Nefer","dendro"]
+];
+
+const WORD_INFO = {};
+
+function registerWord(wordKey, displayName, element){
+  const clean = wordKey.replace(/[^A-Za-z]/g, '').toUpperCase();
+  if(clean.length >= 2){
+    WORD_INFO[clean] = { display: displayName, element: element };
+  }
+}
+
+// Register playable strings and aliases
+RAW_CHARS.forEach(([display, el])=>{
+  if(display === "Tartaglia / Childe"){
+    registerWord("TARTAGLIA", "Tartaglia / Childe", "hydro");
+    registerWord("CHILDE", "Tartaglia / Childe", "hydro");
+  } else if(display === "Kuki / Shinobu"){
+    registerWord("KUKI", "Kuki / Shinobu", "electro");
+    registerWord("SHINOBU", "Kuki / Shinobu", "electro");
+    registerWord("KUKISHINOBU", "Kuki / Shinobu", "electro");
+  } else {
+    registerWord(display, display, el);
+  }
+});
+
+const WORD_SET = new Set(Object.keys(WORD_INFO));
+
+const ELEMENT_COLOR = {
+  pyro:"var(--pyro)",hydro:"var(--hydro)",anemo:"var(--anemo)",electro:"var(--electro)",
+  cryo:"var(--cryo)",geo:"var(--geo)",dendro:"var(--dendro)"
+};
+const ELEMENT_LABEL = {pyro:"Pyro",hydro:"Hydro",anemo:"Anemo",electro:"Electro",cryo:"Cryo",geo:"Geo",dendro:"Dendro"};
+
+let completedNames = new Set();
+
+/* ---------------- Render Compact In-Page Roster ---------------- */
+function renderInlineRoster(){
+  const container = document.getElementById('inlineRoster');
+  const groups = {};
+  RAW_CHARS.forEach(([display, el])=>{
+    (groups[el] = groups[el] || []).push(display);
+  });
+  const order = ["pyro","hydro","anemo","electro","cryo","geo","dendro"];
+  container.innerHTML = '';
+  order.forEach(el => {
+    if(!groups[el]) return;
+    const names = groups[el];
+    const div = document.createElement('div');
+    div.className = 'elem-group';
+    div.innerHTML = `<h4><span class="elem-dot" style="background:${ELEMENT_COLOR[el]}"></span>${ELEMENT_LABEL[el]}</h4>
+      <div class="chip-row">${names.map(n => {
+        const isCleared = completedNames.has(n);
+        return `<span class="chip ${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
+      }).join('')}</div>`;
+    container.appendChild(div);
+  });
+}
+
+/* ---------------- Option 2: Normalized Direct Probability Curve ---------------- */
+const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+// 70% Roster weight + 30% Uniform smoothing curve
+const WEIGHTED_PROBS = {
+  A: 0.1095,
+  I: 0.0893,
+  N: 0.0788,
+  E: 0.0730,
+  O: 0.0586,
+  L: 0.0538,
+  R: 0.0471,
+  H: 0.0413,
+  U: 0.0413,
+  Y: 0.0365,
+  T: 0.0346,
+  C: 0.0336,
+  S: 0.0327,
+  K: 0.0307,
+  D: 0.0279,
+  G: 0.0279,
+  M: 0.0269,
+  F: 0.0231,
+  B: 0.0211,
+  V: 0.0192,
+  Z: 0.0192,
+  X: 0.0173,
+  Q: 0.0154,
+  J: 0.0144,
+  W: 0.0144,
+  P: 0.0125
+};
+
+let letterMode = 'weighted';
+
+function weightedLetter(){
+  if(letterMode === 'weighted'){
+    let r = Math.random();
+    for(let i = 0; i < ALPHA.length; i++){
+      const letter = ALPHA[i];
+      r -= WEIGHTED_PROBS[letter];
+      if(r <= 0) return letter;
+    }
+    return ALPHA[ALPHA.length - 1];
+  }
+  // Uniform 1/26 random
+  return ALPHA[Math.floor(Math.random() * ALPHA.length)];
+}
+
+/* ---------------- Game State (15x15) ---------------- */
+const ROWS = 15;
+const COLS = 15;
+let board = [];
+let score = 0, cleared = 0, bestCombo = 1;
+let gameOver = false;
+let currentTile = null;
+let pendingNextTile = null;
+let placingLocked = false;
+let historyStack = [];
+
+const boardEl = document.getElementById('board');
+const logList = document.getElementById('logList');
+const btnUndo = document.getElementById('btnUndo');
+
+function emptyBoard(){
+  const b = [];
+  for(let r=0; r<ROWS; r++){ b.push(new Array(COLS).fill(null)); }
+  return b;
+}
+
+function updateUndoButtons(){
+  const canUndo = historyStack.length > 0 && !placingLocked && !gameOver;
+  btnUndo.disabled = !canUndo;
+}
+
+function saveStateForUndo(){
+  historyStack.push({
+    board: board.map(row => [...row]),
+    score,
+    cleared,
+    bestCombo,
+    currentTile,
+    nextTile: null,
+    logHTML: logList.innerHTML,
+    completedNames: new Set(completedNames)
+  });
+  if(historyStack.length > 25) historyStack.shift();
+  updateUndoButtons();
+}
+
+function undoLastMove(){
+  if(historyStack.length === 0 || placingLocked || gameOver) return;
+  const prev = historyStack.pop();
+  board = prev.board;
+  score = prev.score;
+  cleared = prev.cleared;
+  bestCombo = prev.bestCombo;
+  currentTile = prev.currentTile;
+  pendingNextTile = prev.nextTile;
+  logList.innerHTML = prev.logHTML;
+  completedNames = prev.completedNames || new Set();
+  
+  updateStats();
+  renderBoard();
+  renderCurrentTile();
+  renderInlineRoster();
+  updateUndoButtons();
+  showFloatNotification("UNDONE");
+}
+
+function newGame(){
+  gameOver = false;
+  placingLocked = false;
+  historyStack = [];
+  pendingNextTile = null;
+  completedNames.clear();
+  document.getElementById('goOverlay').classList.remove('show');
+  board = emptyBoard();
+  score = 0; cleared = 0; bestCombo = 1;
+  logList.innerHTML = '<li class="log-empty">No names cleared yet — place your first tile.</li>';
+  updateStats();
+  renderBoard();
+  drawNextTile();
+  renderInlineRoster();
+  updateUndoButtons();
+}
+
+function drawNextTile(){
+  currentTile = weightedLetter();
+  renderCurrentTile();
+}
+
+function renderCurrentTile(){
+  const el = document.getElementById('currentTileEl');
+  el.textContent = gameOver ? '—' : currentTile;
+}
+
+function hasEmptyCell(){
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(board[r][c]===null) return true;
+  return false;
+}
+
+function triggerGameOver(){
+  gameOver = true;
+  renderCurrentTile();
+  updateUndoButtons();
+  saveLeaderboardScore();
+  document.getElementById('goScore').textContent = score;
+  document.getElementById('goCleared').textContent = cleared;
+  document.getElementById('goCombo').textContent = '×'+bestCombo;
+  document.getElementById('goOverlay').classList.add('show');
+}
+
+function renderBoard(){
+  boardEl.innerHTML = '';
+  for(let r=0; r<ROWS; r++){
+    for(let c=0; c<COLS; c++){
+      const div = document.createElement('div');
+      const letter = board[r][c];
+      div.className = 'tile' + (letter ? '' : ' empty');
+      div.textContent = letter || '';
+      div.dataset.r = r; 
+      div.dataset.c = c;
+      div.tabIndex = 0;
+      div.addEventListener('click', () => onCellClick(r, c));
+      div.addEventListener('keydown', (e) => { if(e.key==='Enter'||e.key===' ') onCellClick(r, c); });
+      boardEl.appendChild(div);
+    }
+  }
+}
+
+function onCellClick(r, c){
+  if(gameOver || placingLocked) return;
+  if(board[r][c] !== null) return;
+  
+  saveStateForUndo();
+
+  board[r][c] = currentTile;
+  currentTile = null;
+  renderCurrentTile();
+  renderBoard();
+  placingLocked = true;
+  updateUndoButtons();
+
+  setTimeout(() => processMatches(afterPlacement), 60);
+}
+
+function afterPlacement(){
+  if(!hasEmptyCell()){
+    placingLocked = false;
+    triggerGameOver();
+    return;
+  }
+  
+  if(pendingNextTile !== null){
+    currentTile = pendingNextTile;
+    pendingNextTile = null;
+    renderCurrentTile();
+  } else {
+    drawNextTile();
+  }
+
+  if(historyStack.length > 0){
+    historyStack[historyStack.length - 1].nextTile = currentTile;
+  }
+
+  placingLocked = false;
+  updateUndoButtons();
+}
+
+function getRuns(lineArr){
+  const runs = []; let i = 0;
+  while(i < lineArr.length){
+    if(lineArr[i] === null){ i++; continue; }
+    let j = i;
+    let text = '';
+    while(j < lineArr.length && lineArr[j] !== null){ text += lineArr[j]; j++; }
+    runs.push({start:i, text});
+    i = j;
+  }
+  return runs;
+}
+
+function findMatchesInLine(lineArr, dir, index){
+  const matches = [];
+  const runs = getRuns(lineArr);
+  runs.forEach(run => {
+    const text = run.text, len = text.length;
+    for(let i=0; i<len; i++){
+      for(let j=i+2; j<len; j++){
+        const sub = text.substring(i, j+1);
+        if(WORD_SET.has(sub)){
+          matches.push({dir, lineIndex:index, start:run.start+i, end:run.start+j, word:sub});
+        }
+      }
+    }
+  });
+  return matches;
+}
+
+function processMatches(callback){
+  let allMatches = [];
+  for(let r=0; r<ROWS; r++){
+    allMatches = allMatches.concat(findMatchesInLine(board[r], 'row', r));
+  }
+  for(let c=0; c<COLS; c++){
+    const col = []; for(let r=0; r<ROWS; r++) col.push(board[r][c]);
+    allMatches = allMatches.concat(findMatchesInLine(col, 'col', c));
+  }
+  
+  if(allMatches.length === 0){ 
+    callback(); 
+    return; 
+  }
+
+  const cellKeys = new Set();
+  allMatches.forEach(m => {
+    if(m.dir === 'row'){
+      for(let c=m.start; c<=m.end; c++) cellKeys.add(m.lineIndex + ',' + c);
+    } else {
+      for(let r=m.start; r<=m.end; r++) cellKeys.add(r + ',' + m.lineIndex);
+    }
+  });
+
+  let hasCross = false;
+  const rowMatches = allMatches.filter(m => m.dir === 'row');
+  const colMatches = allMatches.filter(m => m.dir === 'col');
+  outer:
+  for(const rm of rowMatches){
+    for(const cm of colMatches){
+      if(cm.lineIndex >= rm.start && cm.lineIndex <= rm.end && rm.lineIndex >= cm.start && rm.lineIndex <= cm.end){
+        hasCross = true; break outer;
+      }
+    }
+  }
+
+  const base = allMatches.reduce((sum,m)=>sum + m.word.length * 15, 0);
+  const comboMultiplier = allMatches.length > 1 ? 1.5 : 1;
+  const crossBonus = hasCross ? 80 : 0;
+  const gained = Math.round(base * comboMultiplier) + crossBonus;
+
+  score += gained;
+  cleared += allMatches.length;
+  bestCombo = Math.max(bestCombo, allMatches.length);
+
+  // Turn completed character roster bubble light green
+  allMatches.forEach(m => {
+    const info = WORD_INFO[m.word];
+    if(info && info.display){
+      completedNames.add(info.display);
+      const chip = document.querySelector(`.chip[data-name="${CSS.escape(info.display)}"]`);
+      if(chip) chip.classList.add('cleared');
+    }
+  });
+
+  cellKeys.forEach(key => {
+    const [r,c] = key.split(',').map(Number);
+    const el = boardEl.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+    if(el){
+      const wordHere = allMatches.find(m => {
+        if(m.dir==='row') return m.lineIndex===r && c>=m.start && c<=m.end;
+        return m.lineIndex===c && r>=m.start && r<=m.end;
+      });
+      const color = wordHere ? ELEMENT_COLOR[WORD_INFO[wordHere.word]?.element] : 'var(--gold)';
+      el.style.setProperty('--clear-color', color);
+      el.classList.add('clearing');
+    }
+  });
+
+  logMatches(allMatches, gained, hasCross);
+  showFloatMessage(allMatches.length, hasCross);
+
+  setTimeout(() => {
+    cellKeys.forEach(key => {
+      const [r,c] = key.split(',').map(Number);
+      board[r][c] = null;
+    });
+    renderBoard();
+    updateStats();
+    callback();
+  }, 420);
+}
+
+function logMatches(matches, gained, hasCross){
+  const emptyMsg = logList.querySelector('.log-empty');
+  if(emptyMsg) emptyMsg.remove();
+  matches.forEach(m => {
+    const info = WORD_INFO[m.word] || {display: m.word, element: 'anemo'};
+    const li = document.createElement('li');
+    const pts = Math.round(m.word.length * 15 * (matches.length>1 ? 1.5 : 1));
+    li.innerHTML = `<span class="dot" style="background:${ELEMENT_COLOR[info.element]}"></span>
+      <span class="name">${info.display}</span>
+      <span>${ELEMENT_LABEL[info.element]}</span>
+      <span class="pts">+${pts}</span>`;
+    logList.prepend(li);
+  });
+  if(hasCross){
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="dot" style="background:var(--gold)"></span><span class="name">Cross Match</span><span class="pts">+80</span>`;
+    logList.prepend(li);
+  }
+  while(logList.children.length > 50) logList.removeChild(logList.lastChild);
+}
+
+function showFloatMessage(count, hasCross){
+  const el = document.getElementById('floatMsg');
+  let text = '';
+  if(count > 1) text = `COMBO ×${count}!` + (hasCross ? ' + CROSS BONUS' : '');
+  else text = hasCross ? 'CROSS MATCH!' : 'NAME CLEARED!';
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 1100);
+}
+
+function showFloatNotification(msg){
+  const el = document.getElementById('floatMsg');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 800);
+}
+
+function updateStats(){
+  document.getElementById('scoreVal').textContent = score;
+  document.getElementById('statCleared').textContent = cleared;
+  document.getElementById('statCombo').textContent = '×' + bestCombo;
+}
+
+/* ---------------- Global Leaderboard Storage ---------------- */
+function getLeaderboard(){
+  try {
+    const raw = localStorage.getItem('teyvat_leaderboard');
+    return raw ? JSON.parse(raw) : [
+      { name: "Lumine", score: 1250, cleared: 14, date: "2026-08-20" },
+      { name: "Aether", score: 980, cleared: 10, date: "2026-08-22" },
+      { name: "Paimon", score: 420, cleared: 5, date: "2026-08-25" }
+    ];
+  } catch(e){
+    return [];
+  }
+}
+
+function saveLeaderboardScore(){
+  if(score <= 0) return;
+  const lb = getLeaderboard();
+  const dateStr = new Date().toISOString().split('T')[0];
+  lb.push({ name: "Traveler", score, cleared, date: dateStr });
+  lb.sort((a,b) => b.score - a.score);
+  const trimmed = lb.slice(0, 15);
+  localStorage.setItem('teyvat_leaderboard', JSON.stringify(trimmed));
+}
+
+function renderLeaderboard(){
+  const lb = getLeaderboard();
+  const tbody = document.getElementById('lbBody');
+  tbody.innerHTML = '';
+  if(lb.length === 0){
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);">No scores recorded yet.</td></tr>';
+    return;
+  }
+  lb.forEach((entry, idx) => {
+    const tr = document.createElement('tr');
+    let rankClass = '';
+    if(idx === 0) rankClass = 'rank-1';
+    else if(idx === 1) rankClass = 'rank-2';
+    else if(idx === 2) rankClass = 'rank-3';
+
+    tr.innerHTML = `
+      <td class="${rankClass}">#${idx+1}</td>
+      <td style="font-weight:600;">${escapeHtml(entry.name)}</td>
+      <td style="color:var(--gold);font-weight:700;">${entry.score}</td>
+      <td>${entry.cleared}</td>
+      <td style="color:var(--text-dim);font-size:11px;">${entry.date || '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function escapeHtml(str){
+  return str.replace(/[&<>'"]/g, tag => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  }[tag] || tag));
+}
+
+/* ---------------- Event Listeners & Modals ---------------- */
+document.getElementById('btnNew').addEventListener('click', newGame);
+document.getElementById('btnRestart').addEventListener('click', newGame);
+document.getElementById('btnUndo').addEventListener('click', undoLastMove);
+
+document.getElementById('btnLeaderboard').addEventListener('click', () => {
+  renderLeaderboard();
+  document.getElementById('lbOverlay').classList.add('show');
+});
+document.getElementById('btnCloseLb').addEventListener('click', () => {
+  document.getElementById('lbOverlay').classList.remove('show');
+});
+document.getElementById('btnGoViewLb').addEventListener('click', () => {
+  document.getElementById('goOverlay').classList.remove('show');
+  renderLeaderboard();
+  document.getElementById('lbOverlay').classList.add('show');
+});
+document.getElementById('btnClearLb').addEventListener('click', () => {
+  if(confirm("Are you sure you want to clear all high scores?")){
+    localStorage.removeItem('teyvat_leaderboard');
+    renderLeaderboard();
+  }
+});
+document.getElementById('selTileMode').addEventListener('change', (e) => {
+  letterMode = e.target.value;
+  showFloatNotification(`MODE: ${letterMode.toUpperCase()}`);
+});
+
+document.querySelectorAll('.overlay').forEach(ov => {
+  ov.addEventListener('click', (e) => {
+    if(e.target === ov) ov.classList.remove('show');
+  });
+});
+
+window.addEventListener('keydown', (e) => {
+  if((e.ctrlKey || e.metaKey) && e.key === 'z'){
+    e.preventDefault();
+    undoLastMove();
+  }
+});
+
+// Initialization
+renderInlineRoster();
+newGame();
+</script>
+</body>
+</html>
