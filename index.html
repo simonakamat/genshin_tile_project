@@ -541,14 +541,14 @@ function registerWord(wordKey, displayName, element){
 }
 
 // Register playable strings and aliases
-RAW_CHARS.forEach(([display, el])=>{
-  if(display === "Tartaglia / Childe"){
-    registerWord("TARTAGLIA", "Tartaglia / Childe", "hydro");
-    registerWord("CHILDE", "Tartaglia / Childe", "hydro");
-  } else if(display === "Kuki / Shinobu"){
-    registerWord("KUKI", "Kuki / Shinobu", "electro");
-    registerWord("SHINOBU", "Kuki / Shinobu", "electro");
-    registerWord("KUKISHINOBU", "Kuki / Shinobu", "electro");
+RAW_CHARS.forEach(([display, el]) => {
+  if (display.includes("Childe") || display.includes("Tartaglia")) {
+    registerWord("TARTAGLIA", display, "hydro");
+    registerWord("CHILDE", display, "hydro");
+  } else if (display.includes("Kuki") || display.includes("Shinobu")) {
+    registerWord("KUKI", display, "electro");
+    registerWord("SHINOBU", display, "electro");
+    registerWord("KUKISHINOBU", display, "electro");
   } else {
     registerWord(display, display, el);
   }
