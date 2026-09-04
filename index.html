@@ -844,10 +844,15 @@ function processMatches(callback){
 
   const cellKeys = new Set();
   allMatches.forEach(m => {
-    if(m.dir === 'row'){
-      for(let c=m.start; c<=m.end; c++) cellKeys.add(m.lineIndex + ',' + c);
-    } else {
-      for(let r=m.start; r<=m.end; r++) cellKeys.add(r + ',' + m.lineIndex);
+    const info = WORD_INFO[m.word];
+    if(info && info.display){
+      completedNames.add(info.display);
+      const allChips = document.querySelectorAll('.chip');
+      allChips.forEach(chip => {
+        if(chip.getAttribute('data-name') === info.display){
+          chip.classList.add('cleared');
+        }
+      });
     }
   });
 
