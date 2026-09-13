@@ -819,7 +819,7 @@ function findMatchesInLine(lineArr, dir, index){
       for(let j=i+2; j<len; j++){
         const sub = text.substring(i, j+1);
         if(WORD_SET.has(sub)){
-          matches.push({dir, lineIndex:index, start:run.start+i, end:run.start+j, word:sub});
+          matches.push({dir, lineIndex:index, start:run.start+i, end: run.start + start + sub.length - 1, word:sub});
         }
       }
     }
