@@ -815,11 +815,11 @@ function findMatchesInLine(lineArr, dir, index){
   const runs = getRuns(lineArr);
   runs.forEach(run => {
     const text = run.text, len = text.length;
-    for(let i=0; i<len; i++){
-      for(let j=i+2; j<len; j++){
-        const sub = text.substring(i, j+1);
+    for(let i = 0; i < len; i++){
+      for(let j = i + 1; j < len; j++){
+        const sub = text.substring(i, j + 1);
         if(WORD_SET.has(sub)){
-          matches.push({dir, lineIndex:index, start:run.start+i, end:run.start+j, word:sub});
+          matches.push({dir, lineIndex: index, start: run.start + i, end: run.start + j, word: sub});
         }
       }
     }
