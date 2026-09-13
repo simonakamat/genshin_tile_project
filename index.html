@@ -227,7 +227,6 @@
   }
   .top-tile-bar .hint{font-size:11px;color:var(--text-dim);}
 
-  /* Viewport scaling calculation to fit 15x15 */
   #board{
     display:grid;
     --cell-size: clamp(16px, calc((100vh - 120px) / 15), 36px);
@@ -497,10 +496,10 @@ const RAW_CHARS = [
   ["Dehya","pyro"],["Lyney","pyro"],["Chevreuse","pyro"],["Gaming","pyro"],["Arlecchino","pyro"],
   ["Nicole","pyro"],["Durin","pyro"],["Mavuika","pyro"],
 
-  // Hydro (16/17)
+  // Hydro (16)
   ["Ayato","hydro"],["Yelan","hydro"],["Candace","hydro"],["Barbara","hydro"],["Nilou","hydro"],["Neuvillette","hydro"],
-  ["Kokomi","hydro"], ["Childe / Tartaglia","hydro"], ["Aino","hydro"],["Furina","hydro"],["Sigewinne","hydro"],
-  ["Mualani","hydro"],["Dahlia","hydro"],["Columbina","hydro"], ["Xingqiu","hydro"], ["Mona","hydro"],
+  ["Kokomi","hydro"],["Childe / Tartaglia","hydro"],["Aino","hydro"],["Furina","hydro"],["Sigewinne","hydro"],
+  ["Mualani","hydro"],["Dahlia","hydro"],["Columbina","hydro"],["Xingqiu","hydro"],["Mona","hydro"],
 
   // Anemo (18)
   ["Jean","anemo"],["Venti","anemo"],["Sucrose","anemo"],["Xiao","anemo"],["Kazuha","anemo"],
@@ -508,7 +507,7 @@ const RAW_CHARS = [
   ["Xianyun","anemo"],["Chasca","anemo"],["Mizuki","anemo"],["Lan Yan","anemo"],["Prune","anemo"],
   ["Varka","anemo"],["Ifa","anemo"],["Jahoda","anemo"],
 
-  // Electro (19/20)
+  // Electro (19)
   ["Lisa","electro"],["Razor","electro"],["Beidou","electro"],["Fischl","electro"],["Keqing","electro"],
   ["Raiden","electro"],["Sara","electro"],["Yae Miko","electro"],["Kuki / Shinobu","electro"],["Dori","electro"],
   ["Cyno","electro"],["Clorinde","electro"],["Sethos","electro"],["Ororon","electro"],["Iansan","electro"],
@@ -540,15 +539,27 @@ function registerWord(wordKey, displayName, element){
   }
 }
 
-// Register playable strings and aliases
+// Register playable strings, aliases, and sub-words
 RAW_CHARS.forEach(([display, el]) => {
   if (display.includes("Childe") || display.includes("Tartaglia")) {
-    registerWord("TARTAGLIA", display, "hydro");
-    registerWord("CHILDE", display, "hydro");
+    registerWord("TARTAGLIA", display, el);
+    registerWord("CHILDE", display, el);
   } else if (display.includes("Kuki") || display.includes("Shinobu")) {
-    registerWord("KUKI", display, "electro");
-    registerWord("SHINOBU", display, "electro");
-    registerWord("KUKISHINOBU", display, "electro");
+    registerWord("KUKI", display, el);
+    registerWord("SHINOBU", display, el);
+    registerWord("KUKISHINOBU", display, el);
+  } else if (display === "Hu Tao") {
+    registerWord("HUTAO", display, el);
+    registerWord("HU", display, el);
+    registerWord("TAO", display, el);
+  } else if (display === "Yae Miko") {
+    registerWord("YAEMIKO", display, el);
+    registerWord("YAE", display, el);
+    registerWord("MIKO", display, el);
+  } else if (display === "Lan Yan") {
+    registerWord("LANYAN", display, el);
+    registerWord("LAN", display, el);
+    registerWord("YAN", display, el);
   } else {
     registerWord(display, display, el);
   }
@@ -564,7 +575,6 @@ const ELEMENT_LABEL = {pyro:"Pyro",hydro:"Hydro",anemo:"Anemo",electro:"Electro"
 
 let completedNames = new Set();
 
-/* ---------------- Render Compact In-Page Roster ---------------- */
 function renderInlineRoster(){
   const container = document.getElementById('inlineRoster');
   const groups = {};
@@ -587,10 +597,8 @@ function renderInlineRoster(){
   });
 }
 
-/* ---------------- Option 2: Normalized Direct Probability Curve ---------------- */
 const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-// 70% Roster weight + 30% Uniform smoothing curve
 const WEIGHTED_PROBS = {
   A: 0.1095,
   I: 0.0893,
@@ -632,11 +640,9 @@ function weightedLetter(){
     }
     return ALPHA[ALPHA.length - 1];
   }
-  // Uniform 1/26 random
   return ALPHA[Math.floor(Math.random() * ALPHA.length)];
 }
 
-/* ---------------- Game State (15x15) ---------------- */
 const ROWS = 15;
 const COLS = 15;
 let board = [];
@@ -844,15 +850,10 @@ function processMatches(callback){
 
   const cellKeys = new Set();
   allMatches.forEach(m => {
-    const info = WORD_INFO[m.word];
-    if(info && info.display){
-      completedNames.add(info.display);
-      const allChips = document.querySelectorAll('.chip');
-      allChips.forEach(chip => {
-        if(chip.getAttribute('data-name') === info.display){
-          chip.classList.add('cleared');
-        }
-      });
+    if(m.dir === 'row'){
+      for(let c=m.start; c<=m.end; c++) cellKeys.add(m.lineIndex + ',' + c);
+    } else {
+      for(let r=m.start; r<=m.end; r++) cellKeys.add(r + ',' + m.lineIndex);
     }
   });
 
@@ -877,13 +878,17 @@ function processMatches(callback){
   cleared += allMatches.length;
   bestCombo = Math.max(bestCombo, allMatches.length);
 
-  // Turn completed character roster bubble light green
+  // Safe chip marking without querySelector DOMException crash
   allMatches.forEach(m => {
     const info = WORD_INFO[m.word];
     if(info && info.display){
       completedNames.add(info.display);
-      const chip = document.querySelector(`.chip[data-name="${CSS.escape(info.display)}"]`);
-      if(chip) chip.classList.add('cleared');
+      const allChips = document.querySelectorAll('.chip');
+      allChips.forEach(chip => {
+        if(chip.getAttribute('data-name') === info.display){
+          chip.classList.add('cleared');
+        }
+      });
     }
   });
 
