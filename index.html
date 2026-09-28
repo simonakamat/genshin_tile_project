@@ -501,22 +501,22 @@ const RAW_CHARS = [
   ["Dehya","pyro"],["Lyney","pyro"],["Chevreuse","pyro"],["Gaming","pyro"],["Arlecchino","pyro"],
   ["Nicole","pyro"],["Durin","pyro"],["Mavuika","pyro"],
 
-  // Hydro (16/17)
+  // Hydro (17/18)
   ["Ayato","hydro"],["Yelan","hydro"],["Candace","hydro"],["Barbara","hydro"],["Nilou","hydro"],["Neuvillette","hydro"],
   ["Kokomi","hydro"], ["Childe / Tartaglia","hydro"], ["Aino","hydro"],["Furina","hydro"],["Sigewinne","hydro"],
-  ["Mualani","hydro"],["Dahlia","hydro"],["Columbina","hydro"], ["Xingqiu","hydro"], ["Mona","hydro"],
+  ["Mualani","hydro"],["Dahlia","hydro"],["Columbina","hydro"], ["Xingqiu","hydro"], ["Mona","hydro"], ["Vodyanitsa","hydro"]
 
-  // Anemo (18)
+  // Anemo (19)
   ["Jean","anemo"],["Venti","anemo"],["Sucrose","anemo"],["Xiao","anemo"],["Kazuha","anemo"],
   ["Sayu","anemo"],["Heizou","anemo"],["Faruzan","anemo"],["Wanderer","anemo"],["Lynette","anemo"],
   ["Xianyun","anemo"],["Chasca","anemo"],["Mizuki","anemo"],["Lan Yan","anemo"],["Prune","anemo"],
-  ["Varka","anemo"],["Ifa","anemo"],["Jahoda","anemo"],
+  ["Varka","anemo"],["Ifa","anemo"],["Jahoda","anemo"], ["Vesna","anemo"]
 
-  // Electro (19/20)
+  // Electro (21/22)
   ["Lisa","electro"],["Razor","electro"],["Beidou","electro"],["Fischl","electro"],["Keqing","electro"],
   ["Raiden","electro"],["Sara","electro"],["Yae Miko","electro"],["Kuki / Shinobu","electro"],["Dori","electro"],
   ["Cyno","electro"],["Clorinde","electro"],["Sethos","electro"],["Ororon","electro"],["Iansan","electro"],
-  ["Alyosha","electro"],["Flins","electro"],["Varesa","electro"],["Ineffa","electro"],
+  ["Alyosha","electro"],["Flins","electro"],["Varesa","electro"],["Ineffa","electro"], ["Mitya","electro"], ["Valeriy","electro"]
 
   // Cryo (21)
   ["Kaeya","cryo"],["Chongyun","cryo"],["Qiqi","cryo"],["Diona","cryo"],["Ganyu","cryo"],
@@ -597,32 +597,33 @@ const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 // 70% Roster weight + 30% Uniform smoothing curve
 const WEIGHTED_PROBS = {
   A: 0.1095,
-  I: 0.0893,
-  N: 0.0788,
-  E: 0.0730,
-  O: 0.0586,
-  L: 0.0538,
-  R: 0.0471,
-  H: 0.0413,
-  U: 0.0413,
-  Y: 0.0365,
-  T: 0.0346,
-  C: 0.0336,
-  S: 0.0327,
-  K: 0.0307,
-  D: 0.0279,
-  G: 0.0279,
-  M: 0.0269,
-  F: 0.0231,
   B: 0.0211,
-  V: 0.0192,
-  Z: 0.0192,
-  X: 0.0173,
-  Q: 0.0154,
+  C: 0.0336,
+  D: 0.0279,
+  E: 0.0730,
+  F: 0.0231,
+  G: 0.0279,
+  H: 0.0413,
+  I: 0.0893,
   J: 0.0144,
+  K: 0.0307,
+  L: 0.0538,
+  M: 0.0269,
+  N: 0.0788,
+  O: 0.0586,
+  P: 0.0125,
+  Q: 0.0154,
+  R: 0.0471,
+  S: 0.0327,
+  T: 0.0346,
+  U: 0.0413,
+  V: 0.0192,
   W: 0.0144,
-  P: 0.0125
+  X: 0.0173,
+  Y: 0.0365,
+  Z: 0.0192
 };
+
 
 let letterMode = 'weighted';
 
