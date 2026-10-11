@@ -117,19 +117,17 @@
     border-color:#ff8b8b;
   }
 
+  /* Optimized 3-Column Layout with Enlarged Left Roster */
   .layout{
     display:grid;
-    grid-template-columns:430px 1fr 260px;
-    gap:12px;
+    grid-template-columns:480px 1fr 280px;
+    gap:14px;
     align-items:start;
   }
 
-  @media (max-width: 1200px) {
+  @media (max-width: 1250px) {
     .layout {
       grid-template-columns: 1fr;
-    }
-    .roster-panel {
-      height: 380px !important;
     }
   }
 
@@ -149,43 +147,41 @@
     margin:0 0 6px;
   }
 
-  /* Left Column: Character Roster */
+  /* Left Column: Enlarged Roster to Align with Board */
   .roster-panel{
-    min-height:500px;
-    overflow-y:auto;
-    padding:10px 12px;
+    padding:12px 14px;
     display:flex;
     flex-direction:column;
   }
   #inlineRoster{
     display:flex;
     flex-direction:column;
-    gap:6px;
+    gap:8px;
   }
   .elem-group{margin-bottom:0;}
   .elem-group h4{
-    font-size:11px;
+    font-size:11.5px;
     text-transform:uppercase;
     letter-spacing:.08em;
-    margin:0 0 3px;
+    margin:0 0 4px;
     display:flex;
     align-items:center;
-    gap:5px;
+    gap:6px;
   }
-  .elem-dot{width:6px;height:6px;border-radius:50%;display:inline-block;}
+  .elem-dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
   .chip-row{
     display:flex;
     flex-wrap:wrap;
-    gap:3px 4px;
+    gap:4px 5px;
   }
   .chip{
-    font-size:11px;
+    font-size:11.5px;
     background:var(--panel-2);
     color:var(--text);
     border:1px solid var(--line);
-    padding:2.5px 7px;
+    padding:3px 8px;
     border-radius:12px;
-    line-height:1.15;
+    line-height:1.2;
     font-weight:500;
     transition:background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
   }
@@ -321,7 +317,11 @@
     100%{transform:scale(.3); opacity:0; box-shadow:inset 0 0 0 0 transparent;}
   }
 
-  /* Right Column: Score, Log, Chat */
+  /* Right Column: Score, Log, Bottom Chat */
+  .side.right{
+    display:flex;
+    flex-direction:column;
+  }
   .score-panel{
     padding:10px 12px;
   }
@@ -352,7 +352,7 @@
   .stat-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .stat-row span.val{color:var(--text);font-weight:600;}
 
-  .log{list-style:none;margin:0;padding:0;max-height:220px;overflow-y:auto;}
+  .log{list-style:none;margin:0;padding:0;max-height:180px;overflow-y:auto;}
   .log li{
     font-size:11px;
     padding:4px 0;
@@ -373,25 +373,26 @@
     display:none;
     flex-direction:column;
     height:250px;
+    margin-top:10px;
   }
   .chat-messages{
     list-style:none;
-    margin:0 0 6px 0;
+    margin:0 0 8px 0;
     padding:0;
     flex:1;
     overflow-y:auto;
-    font-size:11px;
+    font-size:11.5px;
     display:flex;
     flex-direction:column;
-    gap:4px;
+    gap:5px;
   }
   .chat-messages li{
     word-break:break-word;
-    line-height:1.3;
+    line-height:1.35;
   }
   .chat-input-row{
     display:flex;
-    gap:5px;
+    gap:6px;
     margin-top:auto;
   }
   .chat-input-row input{
@@ -399,7 +400,7 @@
     background:var(--panel-2);
     border:1px solid var(--line);
     color:var(--text);
-    padding:5px 8px;
+    padding:6px 9px;
     border-radius:4px;
     font-size:11.5px;
   }
@@ -547,7 +548,7 @@
         <ul class="log" id="logList"></ul>
       </div>
 
-      <!-- In-game Multiplayer Chat -->
+      <!-- In-game Multiplayer Chat (Bottom Right) -->
       <div class="panel chat-panel" id="mpChatPanel">
         <h3>Team Chat</h3>
         <ul class="chat-messages" id="chatList"></ul>
@@ -680,7 +681,7 @@ function registerWord(wordKey, displayName, element){
   }
 }
 
-// Register playable strings (Strict name match, aliases ONLY for Childe and Kuki)
+// Strict whole-name registration (Only Childe and Kuki have short aliases)
 RAW_CHARS.forEach(([display, el]) => {
   if (display.includes("Childe") || display.includes("Tartaglia")) {
     registerWord("TARTAGLIA", display, el);
@@ -690,7 +691,6 @@ RAW_CHARS.forEach(([display, el]) => {
     registerWord("SHINOBU", display, el);
     registerWord("KUKISHINOBU", display, el);
   } else {
-    // Pure whole-name registration (e.g. HUTAO, YAEMIKO, LANYAN)
     registerWord(display, display, el);
   }
 });
@@ -810,8 +810,7 @@ let gameInProgress = false;
 let inMultiplayerMode = false;
 let lobbyPlayers = [];
 
-// Ghost hover tracking
-const playerHoveredCells = {}; // { playerIndex: {r, c} }
+const playerHoveredCells = {};
 
 const PEER_CONFIG = {
   config: {
@@ -858,9 +857,12 @@ document.getElementById('btnOpenJoinView').addEventListener('click', () => {
   joinInputRow.style.display = 'block';
 });
 
-function broadcastToClients(msg){
+// Broadcast helper: option to exclude sender to prevent echo
+function broadcastToClients(msg, excludeConn = null){
   connections.forEach(conn => {
-    if(conn && conn.open) conn.send(msg);
+    if(conn && conn.open && conn !== excludeConn) {
+      conn.send(msg);
+    }
   });
 }
 
@@ -963,6 +965,13 @@ function terminateMultiplayerSession(reasonMessage) {
 }
 
 function leaveMultiplayerSession() {
+  if (connections[0] && connections[0].open) {
+    try {
+      connections[0].send({ type: 'PLAYER_LEAVING', name: myPlayerName });
+      connections[0].close();
+    } catch(e) {}
+  }
+
   if (peer) {
     peer.destroy();
     peer = null;
@@ -983,7 +992,23 @@ function leaveMultiplayerSession() {
   showFloatNotification("RETURNED TO SINGLE PLAYER");
 }
 
-/* ---------------- Chat Box Handlers ---------------- */
+/* ---------------- Instant Tab Exit Handlers ---------------- */
+function handleWindowUnload() {
+  if (!inMultiplayerMode) return;
+  if (isHost) {
+    broadcastToClients({ type: 'HOST_CLOSED_SESSION' });
+  } else if (connections[0] && connections[0].open) {
+    try {
+      connections[0].send({ type: 'PLAYER_LEAVING', name: myPlayerName });
+      connections[0].close();
+    } catch(e) {}
+  }
+  if (peer) peer.destroy();
+}
+window.addEventListener('beforeunload', handleWindowUnload);
+window.addEventListener('pagehide', handleWindowUnload);
+
+/* ---------------- Chat Box Handlers (Duplicate Echo Fixed) ---------------- */
 function sendChatMessage() {
   const text = chatInput.value.trim();
   if (!text) return;
@@ -995,13 +1020,13 @@ function sendChatMessage() {
     playerIndex: myPlayerIndex
   };
 
-  appendChatMessage(msg);
+  appendChatMessage(msg); // Render locally for sender
   chatInput.value = '';
 
   if (isHost) {
-    broadcastToClients(msg);
+    broadcastToClients(msg); // Host relays to all guests
   } else if (connections[0]) {
-    connections[0].send(msg);
+    connections[0].send(msg); // Guest sends to host only
   }
 }
 
@@ -1040,7 +1065,7 @@ function renderGhostHovers() {
   });
 
   for (const [pIndex, cell] of Object.entries(playerHoveredCells)) {
-    if (parseInt(pIndex, 10) === myPlayerIndex) continue; // Don't outline own local hover
+    if (parseInt(pIndex, 10) === myPlayerIndex) continue;
     const el = boardEl.querySelector(`[data-r="${cell.r}"][data-c="${cell.c}"]`);
     if (el) {
       el.classList.add(`ghost-p${pIndex % 4}`);
@@ -1137,46 +1162,21 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
         executeTilePlacement(data.r, data.c);
       } else if (data.type === 'CHAT_MSG') {
         appendChatMessage(data);
-        broadcastToClients(data);
+        // Relay to other clients excluding the sender to avoid duplicates
+        broadcastToClients(data, conn);
       } else if (data.type === 'HOVER_MOVE') {
         setGhostHover(data.playerIndex, data.r, data.c);
-        broadcastToClients(data);
+        broadcastToClients(data, conn);
       } else if (data.type === 'HOVER_LEAVE') {
         clearGhostHover(data.playerIndex);
-        broadcastToClients(data);
+        broadcastToClients(data, conn);
+      } else if (data.type === 'PLAYER_LEAVING') {
+        handlePeerDisconnect(conn, data.name);
       }
     });
 
     conn.on('close', () => {
-      const leavingName = conn._playerName || "A player";
-      connections = connections.filter(c => c !== conn);
-      
-      showFloatNotification(`${leavingName.toUpperCase()} LEFT`);
-      broadcastToClients({ type: 'PLAYER_LEFT_NOTICE', playerName: leavingName });
-
-      lobbyPlayers = lobbyPlayers.filter(p => p.index === 0 || connections.some(c => c._playerName === p.name));
-      lobbyPlayers.forEach((p, idx) => { p.index = idx; });
-      if (currentTurnIndex >= lobbyPlayers.length) {
-        currentTurnIndex = 0;
-      }
-
-      broadcastLobbyRoster();
-      renderLobbyRoster();
-
-      if (gameInProgress) {
-        broadcastToClients({
-          type: 'SYNC_BOARD_AND_TURN',
-          board,
-          score,
-          cleared,
-          bestCombo,
-          currentTile,
-          completedNames: Array.from(completedNames),
-          currentTurnIndex,
-          players: lobbyPlayers
-        });
-        updateMultiplayerUI();
-      }
+      handlePeerDisconnect(conn, conn._playerName);
     });
 
     conn.on('error', (err) => console.error("Host conn error:", err));
@@ -1186,6 +1186,38 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
     alert("Peer error: " + err.type + ". Room code may be taken or server busy. Please try again.");
   });
 });
+
+function handlePeerDisconnect(conn, name) {
+  const leavingName = name || conn._playerName || "A player";
+  connections = connections.filter(c => c !== conn);
+  
+  showFloatNotification(`${leavingName.toUpperCase()} LEFT`);
+  broadcastToClients({ type: 'PLAYER_LEFT_NOTICE', playerName: leavingName });
+
+  lobbyPlayers = lobbyPlayers.filter(p => p.name !== leavingName);
+  lobbyPlayers.forEach((p, idx) => { p.index = idx; });
+  if (currentTurnIndex >= lobbyPlayers.length) {
+    currentTurnIndex = 0;
+  }
+
+  broadcastLobbyRoster();
+  renderLobbyRoster();
+
+  if (gameInProgress) {
+    broadcastToClients({
+      type: 'SYNC_BOARD_AND_TURN',
+      board,
+      score,
+      cleared,
+      bestCombo,
+      currentTile,
+      completedNames: Array.from(completedNames),
+      currentTurnIndex,
+      players: lobbyPlayers
+    });
+    updateMultiplayerUI();
+  }
+}
 
 // 2. Client joins an existing lobby
 document.getElementById('btnJoinLobby').addEventListener('click', () => {
