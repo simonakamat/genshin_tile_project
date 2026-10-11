@@ -785,7 +785,7 @@ function renderInlineRoster(){
     div.innerHTML = `<h4><span class="elem-dot" style="background:${ELEMENT_COLOR[el]}"></span>${ELEMENT_LABEL[el]}</h4>
       <div class="chip-row">${names.map(n => {
         const isCleared = completedNames.has(n);
-        return `<span class="chip \${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
+        return `<span class="chip ${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
       }).join('')}</div>`;
     container.appendChild(div);
   });
