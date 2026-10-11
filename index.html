@@ -1533,7 +1533,11 @@ function undoLastMove(){
   currentTile = prev.currentTile;
   pendingNextTile = prev.nextTile;
   logList.innerHTML = prev.logHTML;
-  completedNames = prev.completedNames || new Set();
+  
+  // Keep all completed names intact so undo never erases unlocked characters
+  if (prev.completedNames) {
+    prev.completedNames.forEach(name => completedNames.add(name));
+  }
   
   updateStats();
   renderBoard();
