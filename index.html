@@ -512,7 +512,7 @@
     border:1px solid var(--line);
     border-radius:12px;
     padding:20px;
-    max-width:520px;
+    max-width:480px;
     width:100%;
     max-height:85vh;
     overflow-y:auto;
@@ -872,7 +872,6 @@ let lobbyPlayers = [];
 
 const playerHoveredCells = {};
 
-// Full STUN/TURN ICE server list for cross-device & cross-network connections
 const PEER_CONFIG = {
   config: {
     iceServers: [
@@ -982,7 +981,6 @@ function renderLobbyRoster() {
   });
 }
 
-// Host kick player logic
 window.kickPlayer = function(targetIndex) {
   if (!isHost || targetIndex === 0) return;
   const targetPlayer = lobbyPlayers.find(p => p.index === targetIndex);
@@ -1239,11 +1237,9 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
         conn._playerName = data.name;
         conn._playerIndex = newPlayerIndex;
 
-        // Ensure no duplicate registration
         lobbyPlayers = lobbyPlayers.filter(p => p.name !== data.name);
         lobbyPlayers.push({ name: data.name, index: newPlayerIndex, isHost: false });
         
-        // Immediate full match & board synchronization for mid-game cross-device joins
         conn.send({
           type: 'LOBBY_WELCOME',
           playerIndex: newPlayerIndex,
@@ -1376,7 +1372,6 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
         waitingHostNotice.style.display = 'inline-block';
         showFloatNotification(`CONNECTED TO ${roomCode}`);
 
-        // Mid-game catchup
         if (data.gameInProgress) {
           gameInProgress = true;
           board = data.board;
@@ -1534,7 +1529,7 @@ function undoLastMove(){
   pendingNextTile = prev.nextTile;
   logList.innerHTML = prev.logHTML;
   
-  // Keep all completed names intact so undo never erases unlocked characters
+  // Keep all completed green names preserved across undos
   if (prev.completedNames) {
     prev.completedNames.forEach(name => completedNames.add(name));
   }
