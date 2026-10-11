@@ -131,6 +131,36 @@
     border-color:#ff6b6b;
   }
 
+  /* Persistent Header Room Code Display */
+  .room-badge{
+    display:none;
+    align-items:center;
+    gap:6px;
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:11.5px;
+    color:var(--gold);
+    background:var(--panel-2);
+    border:1px solid var(--gold-dim);
+    padding:4px 10px;
+    border-radius:6px;
+    cursor:pointer;
+    user-select:none;
+    transition:background .15s, border-color .15s;
+  }
+  .room-badge:hover{
+    background:#25304e;
+    border-color:var(--gold);
+  }
+  .room-badge .copy-hint{
+    font-family:'Inter',sans-serif;
+    font-size:9.5px;
+    font-weight:500;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    letter-spacing:.05em;
+  }
+
   /* 3-Column Layout */
   .layout{
     display:grid;
@@ -535,6 +565,11 @@
       <div class="eyebrow">15×15 Board</div>
     </div>
     <div class="headerbtns">
+      <!-- Persistent Click-to-Copy Room Code Badge -->
+      <span class="room-badge" id="roomCodeBadge" title="Click to copy room code">
+        <span>ROOM: <strong id="headerRoomCode">----</strong></span>
+        <span class="copy-hint">(Copy)</span>
+      </span>
       <button class="btn" id="btnModeToggle">Create/Join Lobby</button>
       <button class="btn" id="btnUndo" disabled>Undo Placement</button>
       <button class="btn primary" id="btnNew">New Game</button>
@@ -820,6 +855,8 @@ const mpChatPanel = document.getElementById('mpChatPanel');
 const chatList = document.getElementById('chatList');
 const chatInput = document.getElementById('chatInput');
 const btnSendChat = document.getElementById('btnSendChat');
+const roomCodeBadge = document.getElementById('roomCodeBadge');
+const headerRoomCode = document.getElementById('headerRoomCode');
 
 /* ---------------- Staging Lobby & Multiplayer Engine ---------------- */
 let peer = null;
@@ -858,6 +895,16 @@ const btnStartGame = document.getElementById('btnStartGame');
 const waitingHostNotice = document.getElementById('waitingHostNotice');
 const joinInputRow = document.getElementById('joinInputRow');
 const btnJoinLobby = document.getElementById('btnJoinLobby');
+
+// One-click copy room code from header
+roomCodeBadge.addEventListener('click', () => {
+  if (!roomCode) return;
+  navigator.clipboard.writeText(roomCode).then(() => {
+    showFloatNotification(`COPIED CODE: ${roomCode}`);
+  }).catch(() => {
+    showFloatNotification(`CODE: ${roomCode}`);
+  });
+});
 
 btnModeToggle.addEventListener('click', () => {
   if (!inMultiplayerMode) {
@@ -984,9 +1031,12 @@ function setMultiplayerActive(active) {
   if (active) {
     btnModeToggle.textContent = "Leave Lobby";
     btnModeToggle.classList.add("leave-btn");
+    roomCodeBadge.style.display = 'inline-flex';
+    headerRoomCode.textContent = roomCode;
   } else {
     btnModeToggle.textContent = "Create/Join Lobby";
     btnModeToggle.classList.remove("leave-btn");
+    roomCodeBadge.style.display = 'none';
     mpTurnHeader.style.display = 'none';
     mpChatPanel.style.display = 'none';
     placementHint.textContent = "Click any empty cell on the board";
@@ -1060,7 +1110,7 @@ function handleWindowUnload() {
 window.addEventListener('beforeunload', handleWindowUnload);
 window.addEventListener('pagehide', handleWindowUnload);
 
-/* ---------------- Chat Box Handlers (Duplicate Echo Fixed) ---------------- */
+/* ---------------- Chat Box Handlers ---------------- */
 function sendChatMessage() {
   const text = chatInput.value.trim();
   if (!text) return;
