@@ -6,7 +6,7 @@
 <title>Teyvat Tiles</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<!-- WebRTC PeerJS for GitHub Pages Multiplayer -->
+<!-- WebRTC PeerJS -->
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   :root{
@@ -53,7 +53,6 @@
     height:100%;
   }
 
-  /* Ultra-compact Header */
   header{
     display:flex;
     justify-content:space-between;
@@ -96,7 +95,7 @@
     padding:5px 12px;
     border-radius:6px;
     cursor:pointer;
-    transition:border-color .15s, background .15s;
+    transition:border-color .15s, background .15s, color .15s;
   }
   button.btn:hover{border-color:var(--gold-dim);background:#212b46;}
   button.btn:active{transform:translateY(1px);}
@@ -107,19 +106,12 @@
     border:none;
   }
   button.btn.primary:hover{filter:brightness(1.08);}
-
-  .mp-badge{
-    font-size:11px;
-    font-weight:700;
-    padding:4px 9px;
-    border-radius:6px;
-    border:1px solid var(--line);
-    background:var(--panel);
-    letter-spacing:.05em;
-    text-transform:uppercase;
+  button.btn.mode-active{
+    border-color:var(--gold);
+    color:var(--gold);
+    background:#1f2845;
   }
 
-  /* Main 3-Column Layout */
   .layout{
     display:grid;
     grid-template-columns:430px 1fr 240px;
@@ -202,6 +194,36 @@
     justify-content:flex-start;
     min-height:0;
   }
+
+  /* Centered Multiplayer Turn Bar directly above current tile */
+  #mpTurnHeader{
+    display:none;
+    margin-bottom:4px;
+    text-align:center;
+  }
+  .turn-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:11.5px;
+    font-weight:700;
+    padding:3px 14px;
+    border-radius:14px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    border:1px solid var(--line);
+    background:var(--panel);
+  }
+  .turn-pill.my-turn{
+    color:var(--dendro);
+    border-color:var(--dendro);
+    background:var(--panel-2);
+    box-shadow:0 0 10px rgba(164,214,94,.25);
+  }
+  .turn-pill.wait-turn{
+    color:var(--gold-dim);
+    border-color:var(--line);
+  }
   
   .top-tile-bar{
     display:flex;
@@ -240,7 +262,6 @@
   }
   .top-tile-bar .hint{font-size:11px;color:var(--text-dim);}
 
-  /* Viewport scaling calculation to fit 15x15 */
   #board{
     display:grid;
     --cell-size: clamp(16px, calc((100vh - 120px) / 15), 36px);
@@ -409,27 +430,6 @@
     margin-right: 8px;
   }
 
-  .leaderboard-table{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:6px;
-    font-size:12px;
-  }
-  .leaderboard-table th, .leaderboard-table td{
-    padding:6px 8px;
-    text-align:left;
-    border-bottom:1px solid var(--line);
-  }
-  .leaderboard-table th{
-    color:var(--gold);
-    font-family:'Cinzel',serif;
-    font-size:10px;
-    text-transform:uppercase;
-  }
-  .rank-1{color:#ffd700;font-weight:700;}
-  .rank-2{color:#c0c0c0;font-weight:700;}
-  .rank-3{color:#cd7f32;font-weight:700;}
-
   .go-stats{margin:10px 0;font-size:12.5px;}
   .go-stats div{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line);}
 </style>
@@ -443,9 +443,7 @@
       <div class="eyebrow">15×15 Board</div>
     </div>
     <div class="headerbtns">
-      <span class="mp-badge" id="turnBadge" style="display:none;"></span>
-      <button class="btn" id="btnMultiplayer">Multiplayer Lobby</button>
-      <button class="btn" id="btnLeaderboard">Leaderboard</button>
+      <button class="btn" id="btnModeToggle">Switch to Multiplayer Mode</button>
       <button class="btn" id="btnUndo" disabled>Undo Placement</button>
       <button class="btn primary" id="btnNew">New Game</button>
     </div>
@@ -461,6 +459,11 @@
     </div>
 
     <div class="board-col">
+      <!-- Centered Multiplayer Turn Header (Visible only during MP match) -->
+      <div id="mpTurnHeader">
+        <span class="turn-pill" id="turnIndicator">Waiting...</span>
+      </div>
+
       <div class="top-tile-bar">
         <span class="lbl">Current Tile:</span>
         <div id="currentTileEl" class="current-tile"></div>
@@ -499,7 +502,7 @@
 <div class="overlay" id="lobbyOverlay">
   <div class="modal" style="max-width: 460px;">
     <h2>Co-op Staging Lobby</h2>
-    <p class="sub">Form a team of up to 4 players to take turns on a shared board.</p>
+    <p class="sub">Form a team of up to 4 players to place tiles on a shared board.</p>
 
     <!-- Setup View (Choose Host / Join) -->
     <div id="lobbySetupView">
@@ -531,7 +534,6 @@
 
       <p style="font-size:11px; color:var(--text-dim); margin-top:0;">Turn Sequence (Player 1 moves first):</p>
       
-      <!-- Real-time Connected Player List -->
       <ul id="rosterList" style="list-style:none; padding:0; margin:0 0 16px 0;"></ul>
 
       <div class="close-row" style="justify-content:space-between;">
@@ -547,40 +549,17 @@
   </div>
 </div>
 
-<div class="overlay" id="lbOverlay">
-  <div class="modal">
-    <h2>Global Leaderboard</h2>
-    <p class="sub">Highest registered scores on the 15×15 board.</p>
-    <table class="leaderboard-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Player</th>
-          <th>Score</th>
-          <th>Cleared</th>
-          <th>Date</th>
-        </tr>
-      </thead>
-      <tbody id="lbBody"></tbody>
-    </table>
-    <div class="close-row">
-      <button class="btn" id="btnClearLb">Reset Scores</button>
-      <button class="btn primary" id="btnCloseLb">Close</button>
-    </div>
-  </div>
-</div>
-
+<!-- Game Over Overlay -->
 <div class="overlay" id="goOverlay">
   <div class="modal">
     <h2>Board Full — Game Over</h2>
-    <p class="sub">No moves remain! Your final score was logged to the leaderboard.</p>
+    <p class="sub">No moves remain on the board!</p>
     <div class="go-stats">
       <div><span>Final score</span><span id="goScore">0</span></div>
       <div><span>Names cleared</span><span id="goCleared">0</span></div>
       <div><span>Best combo</span><span id="goCombo">×1</span></div>
     </div>
     <div class="close-row">
-      <button class="btn" id="btnGoViewLb">View Leaderboard</button>
       <button class="btn primary" id="btnRestart">Play Again</button>
     </div>
   </div>
@@ -758,9 +737,11 @@ const boardEl = document.getElementById('board');
 const logList = document.getElementById('logList');
 const btnUndo = document.getElementById('btnUndo');
 const placementHint = document.getElementById('placementHint');
-const turnBadge = document.getElementById('turnBadge');
+const btnModeToggle = document.getElementById('btnModeToggle');
+const mpTurnHeader = document.getElementById('mpTurnHeader');
+const turnIndicator = document.getElementById('turnIndicator');
 
-/* ---------------- Staging Lobby & Multiplayer Engine (With STUN Fallback) ---------------- */
+/* ---------------- Staging Lobby & Multiplayer Engine ---------------- */
 let peer = null;
 let connections = [];
 let isHost = false;
@@ -769,9 +750,9 @@ let myPlayerIndex = 0;
 let currentTurnIndex = 0;
 let roomCode = "";
 let gameInProgress = false;
+let inMultiplayerMode = false;
 let lobbyPlayers = [];
 
-// Free public STUN configuration for cross-network WebRTC connections
 const PEER_CONFIG = {
   config: {
     iceServers: [
@@ -792,8 +773,23 @@ const waitingHostNotice = document.getElementById('waitingHostNotice');
 const joinInputRow = document.getElementById('joinInputRow');
 const btnJoinLobby = document.getElementById('btnJoinLobby');
 
-document.getElementById('btnMultiplayer').addEventListener('click', () => {
-  lobbyOverlay.classList.add('show');
+btnModeToggle.addEventListener('click', () => {
+  if (!inMultiplayerMode) {
+    // Single player -> Open Multiplayer Lobby
+    lobbyOverlay.classList.add('show');
+  } else {
+    // Multiplayer -> Switch to Single Player
+    if (isHost) {
+      if (confirm("Switch to Single Player mode? This will disconnect all players and end the multiplayer session.")) {
+        broadcastToClients({ type: 'HOST_CLOSED_SESSION' });
+        terminateMultiplayerSession("You ended the multiplayer session and returned to Single Player mode.");
+      }
+    } else {
+      if (confirm("Leave the multiplayer game and return to Single Player mode?")) {
+        leaveMultiplayerSession();
+      }
+    }
+  }
 });
 
 document.getElementById('btnCloseLobbyModal').addEventListener('click', () => {
@@ -844,32 +840,83 @@ function renderLobbyRoster() {
 }
 
 function updateMultiplayerUI() {
-  if (!gameInProgress || lobbyPlayers.length <= 1) {
-    turnBadge.style.display = 'none';
+  if (!inMultiplayerMode || !gameInProgress || lobbyPlayers.length <= 1) {
+    mpTurnHeader.style.display = 'none';
     placementHint.textContent = "Click any empty cell on the board";
     btnUndo.style.display = 'inline-block';
     return;
   }
 
-  btnUndo.style.display = 'none'; // Undo disabled in live multi-player
-  turnBadge.style.display = 'inline-block';
+  btnUndo.style.display = 'none';
+  mpTurnHeader.style.display = 'block';
 
   const activePlayer = lobbyPlayers[currentTurnIndex] || { name: `P${currentTurnIndex + 1}` };
   const isMyTurn = (myPlayerIndex === currentTurnIndex);
 
   if (isMyTurn) {
-    turnBadge.style.background = 'var(--panel-2)';
-    turnBadge.style.color = 'var(--dendro)';
-    turnBadge.style.borderColor = 'var(--dendro)';
-    turnBadge.textContent = `YOUR TURN (${activePlayer.name})`;
+    turnIndicator.className = "turn-pill my-turn";
+    turnIndicator.textContent = `YOUR TURN (${activePlayer.name})`;
     placementHint.textContent = "Your turn — place a tile on the board";
   } else {
-    turnBadge.style.background = 'var(--panel)';
-    turnBadge.style.color = 'var(--gold-dim)';
-    turnBadge.style.borderColor = 'var(--line)';
-    turnBadge.textContent = `${activePlayer.name}'s Turn (P${currentTurnIndex + 1})`;
+    turnIndicator.className = "turn-pill wait-turn";
+    turnIndicator.textContent = `${activePlayer.name}'s Turn (P${currentTurnIndex + 1})`;
     placementHint.textContent = `Waiting for ${activePlayer.name} to place a tile...`;
   }
+}
+
+function setMultiplayerActive(active) {
+  inMultiplayerMode = active;
+  if (active) {
+    btnModeToggle.textContent = "Switch to Single Player Mode";
+    btnModeToggle.classList.add("mode-active");
+  } else {
+    btnModeToggle.textContent = "Switch to Multiplayer Mode";
+    btnModeToggle.classList.remove("mode-active");
+    mpTurnHeader.style.display = 'none';
+    placementHint.textContent = "Click any empty cell on the board";
+    btnUndo.style.display = 'inline-block';
+  }
+}
+
+function terminateMultiplayerSession(reasonMessage) {
+  if (peer) {
+    peer.destroy();
+    peer = null;
+  }
+  connections = [];
+  lobbyPlayers = [];
+  isHost = false;
+  gameInProgress = false;
+  setMultiplayerActive(false);
+
+  // Reset UI views
+  lobbySetupView.style.display = 'block';
+  lobbyRoomView.style.display = 'none';
+  document.getElementById('lobbyCloseRow').style.display = 'flex';
+  lobbyOverlay.classList.remove('show');
+  
+  newGame();
+  if (reasonMessage) alert(reasonMessage);
+}
+
+function leaveMultiplayerSession() {
+  if (peer) {
+    peer.destroy();
+    peer = null;
+  }
+  connections = [];
+  lobbyPlayers = [];
+  isHost = false;
+  gameInProgress = false;
+  setMultiplayerActive(false);
+
+  lobbySetupView.style.display = 'block';
+  lobbyRoomView.style.display = 'none';
+  document.getElementById('lobbyCloseRow').style.display = 'flex';
+  lobbyOverlay.classList.remove('show');
+  
+  newGame();
+  showFloatNotification("RETURNED TO SINGLE PLAYER");
 }
 
 // 1. Host creates a lobby
@@ -887,6 +934,7 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
     connections = [];
     gameInProgress = false;
     lobbyPlayers = [{ name: myPlayerName, index: 0, isHost: true }];
+    setMultiplayerActive(true);
 
     showRoomView();
     renderLobbyRoster();
@@ -905,6 +953,7 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
     conn.on('data', (data) => {
       if (data.type === 'PLAYER_HELLO') {
         const newPlayerIndex = connections.length;
+        conn._playerName = data.name;
         lobbyPlayers.push({ name: data.name, index: newPlayerIndex, isHost: false });
         
         conn.send({
@@ -924,10 +973,37 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
     });
 
     conn.on('close', () => {
+      const leavingName = conn._playerName || "A player";
       connections = connections.filter(c => c !== conn);
-      lobbyPlayers = lobbyPlayers.filter(p => p.index === 0 || connections.some(c => c.open));
+      
+      // Notify remaining players
+      showFloatNotification(`${leavingName.toUpperCase()} LEFT`);
+      broadcastToClients({ type: 'PLAYER_LEFT_NOTICE', playerName: leavingName });
+
+      // Re-index remaining players
+      lobbyPlayers = lobbyPlayers.filter(p => p.index === 0 || connections.some(c => c._playerName === p.name));
+      lobbyPlayers.forEach((p, idx) => { p.index = idx; });
+      if (currentTurnIndex >= lobbyPlayers.length) {
+        currentTurnIndex = 0;
+      }
+
       broadcastLobbyRoster();
       renderLobbyRoster();
+
+      if (gameInProgress) {
+        broadcastToClients({
+          type: 'SYNC_BOARD_AND_TURN',
+          board,
+          score,
+          cleared,
+          bestCombo,
+          currentTile,
+          completedNames: Array.from(completedNames),
+          currentTurnIndex,
+          players: lobbyPlayers
+        });
+        updateMultiplayerUI();
+      }
     });
 
     conn.on('error', (err) => console.error("Host conn error:", err));
@@ -981,6 +1057,7 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
         btnJoinLobby.disabled = false;
         myPlayerIndex = data.playerIndex;
         lobbyPlayers = data.players;
+        setMultiplayerActive(true);
         showRoomView();
         renderLobbyRoster();
         btnStartGame.style.display = 'none';
@@ -989,6 +1066,10 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
       } else if (data.type === 'ROSTER_UPDATE') {
         lobbyPlayers = data.players;
         renderLobbyRoster();
+      } else if (data.type === 'PLAYER_LEFT_NOTICE') {
+        showFloatNotification(`${data.playerName.toUpperCase()} LEFT ROOM`);
+      } else if (data.type === 'HOST_CLOSED_SESSION') {
+        terminateMultiplayerSession("The host has ended the multiplayer session. You are now in Single Player mode.");
       } else if (data.type === 'START_MATCH') {
         gameInProgress = true;
         board = data.board;
@@ -998,6 +1079,7 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
         currentTile = data.currentTile;
         currentTurnIndex = data.currentTurnIndex;
         completedNames = new Set(data.completedNames);
+        lobbyPlayers = data.players || lobbyPlayers;
 
         lobbyOverlay.classList.remove('show');
         renderBoard();
@@ -1013,6 +1095,7 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
         currentTile = data.currentTile;
         currentTurnIndex = data.currentTurnIndex;
         completedNames = new Set(data.completedNames);
+        if (data.players) lobbyPlayers = data.players;
 
         renderBoard();
         renderCurrentTile();
@@ -1025,8 +1108,7 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
     });
 
     conn.on('close', () => {
-      alert("Host disconnected or closed room.");
-      location.reload();
+      terminateMultiplayerSession("You have been disconnected from the host. Returning to Single Player mode.");
     });
 
     conn.on('error', (err) => {
@@ -1044,7 +1126,7 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
   });
 });
 
-// 3. Host starts the game
+// 3. Host starts game
 btnStartGame.addEventListener('click', () => {
   if (!isHost) return;
   gameInProgress = true;
@@ -1059,7 +1141,8 @@ btnStartGame.addEventListener('click', () => {
     bestCombo,
     currentTile,
     completedNames: Array.from(completedNames),
-    currentTurnIndex
+    currentTurnIndex,
+    players: lobbyPlayers
   });
 
   lobbyOverlay.classList.remove('show');
@@ -1068,8 +1151,14 @@ btnStartGame.addEventListener('click', () => {
 });
 
 document.getElementById('btnLeaveLobby').addEventListener('click', () => {
-  if (peer) peer.destroy();
-  location.reload();
+  if (isHost) {
+    if (confirm("Leaving as host will close the room for everyone. Proceed?")) {
+      broadcastToClients({ type: 'HOST_CLOSED_SESSION' });
+      leaveMultiplayerSession();
+    }
+  } else {
+    leaveMultiplayerSession();
+  }
 });
 
 /* ---------------- Board & Turn Core ---------------- */
@@ -1080,12 +1169,12 @@ function emptyBoard(){
 }
 
 function updateUndoButtons(){
-  const canUndo = historyStack.length > 0 && !placingLocked && !gameOver && (!gameInProgress || lobbyPlayers.length <= 1);
+  const canUndo = historyStack.length > 0 && !placingLocked && !gameOver && (!inMultiplayerMode || lobbyPlayers.length <= 1);
   btnUndo.disabled = !canUndo;
 }
 
 function saveStateForUndo(){
-  if(gameInProgress && lobbyPlayers.length > 1) return;
+  if(inMultiplayerMode && lobbyPlayers.length > 1) return;
   historyStack.push({
     board: board.map(row => [...row]),
     score,
@@ -1101,7 +1190,7 @@ function saveStateForUndo(){
 }
 
 function undoLastMove(){
-  if(historyStack.length === 0 || placingLocked || gameOver || (gameInProgress && lobbyPlayers.length > 1)) return;
+  if(historyStack.length === 0 || placingLocked || gameOver || (inMultiplayerMode && lobbyPlayers.length > 1)) return;
   const prev = historyStack.pop();
   board = prev.board;
   score = prev.score;
@@ -1121,7 +1210,7 @@ function undoLastMove(){
 }
 
 function newGame(){
-  if(gameInProgress && lobbyPlayers.length > 1 && !isHost){
+  if(inMultiplayerMode && lobbyPlayers.length > 1 && !isHost){
     showFloatNotification("ONLY HOST CAN RESTART");
     return;
   }
@@ -1142,7 +1231,7 @@ function newGame(){
   updateUndoButtons();
   updateMultiplayerUI();
 
-  if(isHost && gameInProgress && lobbyPlayers.length > 1){
+  if(isHost && inMultiplayerMode && lobbyPlayers.length > 1){
     broadcastToClients({
       type: 'SYNC_BOARD_AND_TURN',
       board,
@@ -1151,7 +1240,8 @@ function newGame(){
       bestCombo,
       currentTile,
       completedNames: Array.from(completedNames),
-      currentTurnIndex
+      currentTurnIndex,
+      players: lobbyPlayers
     });
   }
 }
@@ -1175,7 +1265,6 @@ function triggerGameOver(){
   gameOver = true;
   renderCurrentTile();
   updateUndoButtons();
-  saveLeaderboardScore();
   document.getElementById('goScore').textContent = score;
   document.getElementById('goCleared').textContent = cleared;
   document.getElementById('goCombo').textContent = '×'+bestCombo;
@@ -1204,7 +1293,7 @@ function onCellClick(r, c){
   if(gameOver || placingLocked) return;
   if(board[r][c] !== null) return;
 
-  if(lobbyPlayers.length > 1){
+  if(inMultiplayerMode && lobbyPlayers.length > 1){
     if(!gameInProgress){
       showFloatNotification("WAIT FOR HOST TO START GAME");
       return;
@@ -1255,7 +1344,7 @@ function afterPlacement(){
     historyStack[historyStack.length - 1].nextTile = currentTile;
   }
 
-  if(lobbyPlayers.length > 1 && isHost){
+  if(inMultiplayerMode && lobbyPlayers.length > 1 && isHost){
     currentTurnIndex = (currentTurnIndex + 1) % lobbyPlayers.length;
     broadcastToClients({
       type: 'SYNC_BOARD_AND_TURN',
@@ -1265,7 +1354,8 @@ function afterPlacement(){
       bestCombo,
       currentTile,
       completedNames: Array.from(completedNames),
-      currentTurnIndex
+      currentTurnIndex,
+      players: lobbyPlayers
     });
   }
 
@@ -1356,7 +1446,7 @@ function processMatches(callback){
   cleared += allMatches.length;
   bestCombo = Math.max(bestCombo, allMatches.length);
 
-  if(isHost && lobbyPlayers.length > 1){
+  if(isHost && inMultiplayerMode && lobbyPlayers.length > 1){
     broadcastToClients({
       type: 'TRIGGER_MATCH_ANIMATION',
       cellKeys: Array.from(cellKeys),
@@ -1457,56 +1547,6 @@ function updateStats(){
   document.getElementById('statCombo').textContent = '×' + bestCombo;
 }
 
-/* ---------------- Global Leaderboard Storage ---------------- */
-function getLeaderboard(){
-  try {
-    const raw = localStorage.getItem('teyvat_leaderboard');
-    return raw ? JSON.parse(raw) : [
-      { name: "Lumine", score: 1250, cleared: 14, date: "2026-08-20" },
-      { name: "Aether", score: 980, cleared: 10, date: "2026-08-22" },
-      { name: "Paimon", score: 420, cleared: 5, date: "2026-08-25" }
-    ];
-  } catch(e){
-    return [];
-  }
-}
-
-function saveLeaderboardScore(){
-  if(score <= 0) return;
-  const lb = getLeaderboard();
-  const dateStr = new Date().toISOString().split('T')[0];
-  lb.push({ name: "Traveler", score, cleared, date: dateStr });
-  lb.sort((a,b) => b.score - a.score);
-  const trimmed = lb.slice(0, 15);
-  localStorage.setItem('teyvat_leaderboard', JSON.stringify(trimmed));
-}
-
-function renderLeaderboard(){
-  const lb = getLeaderboard();
-  const tbody = document.getElementById('lbBody');
-  tbody.innerHTML = '';
-  if(lb.length === 0){
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);">No scores recorded yet.</td></tr>';
-    return;
-  }
-  lb.forEach((entry, idx) => {
-    const tr = document.createElement('tr');
-    let rankClass = '';
-    if(idx === 0) rankClass = 'rank-1';
-    else if(idx === 1) rankClass = 'rank-2';
-    else if(idx === 2) rankClass = 'rank-3';
-
-    tr.innerHTML = `
-      <td class="${rankClass}">#${idx+1}</td>
-      <td style="font-weight:600;">${escapeHtml(entry.name)}</td>
-      <td style="color:var(--gold);font-weight:700;">${entry.score}</td>
-      <td>${entry.cleared}</td>
-      <td style="color:var(--text-dim);font-size:11px;">${entry.date || '—'}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
 function escapeHtml(str){
   return str.replace(/[&<>'"]/g, tag => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -1515,27 +1555,12 @@ function escapeHtml(str){
 
 /* ---------------- Event Listeners & Modals ---------------- */
 document.getElementById('btnNew').addEventListener('click', newGame);
-document.getElementById('btnRestart').addEventListener('click', newGame);
+document.getElementById('btnRestart').addEventListener('click', () => {
+  document.getElementById('goOverlay').classList.remove('show');
+  newGame();
+});
 document.getElementById('btnUndo').addEventListener('click', undoLastMove);
 
-document.getElementById('btnLeaderboard').addEventListener('click', () => {
-  renderLeaderboard();
-  document.getElementById('lbOverlay').classList.add('show');
-});
-document.getElementById('btnCloseLb').addEventListener('click', () => {
-  document.getElementById('lbOverlay').classList.remove('show');
-});
-document.getElementById('btnGoViewLb').addEventListener('click', () => {
-  document.getElementById('goOverlay').classList.remove('show');
-  renderLeaderboard();
-  document.getElementById('lbOverlay').classList.add('show');
-});
-document.getElementById('btnClearLb').addEventListener('click', () => {
-  if(confirm("Are you sure you want to clear all high scores?")){
-    localStorage.removeItem('teyvat_leaderboard');
-    renderLeaderboard();
-  }
-});
 document.getElementById('selTileMode').addEventListener('change', (e) => {
   letterMode = e.target.value;
   showFloatNotification(`MODE: ${letterMode.toUpperCase()}`);
