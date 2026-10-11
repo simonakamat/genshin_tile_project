@@ -131,7 +131,6 @@
     border-color:#ff6b6b;
   }
 
-  /* Persistent Header Room Code Display */
   .room-badge{
     display:none;
     align-items:center;
@@ -161,7 +160,6 @@
     letter-spacing:.05em;
   }
 
-  /* 3-Column Layout */
   .layout{
     display:grid;
     grid-template-columns:460px 1fr 280px;
@@ -191,7 +189,6 @@
     margin:0 0 6px;
   }
 
-  /* Left Column: Full-Height Roster Box */
   .side.left{
     display:flex;
     flex-direction:column;
@@ -244,7 +241,6 @@
     font-weight:700;
   }
 
-  /* Center Column: Board */
   .board-col{
     display:flex;
     flex-direction:column;
@@ -357,7 +353,6 @@
     animation:pulseClear .5s ease-out forwards;
   }
 
-  /* Ghost Cursors for Multiplayer */
   .tile.ghost-p0 { outline: 2px solid var(--pyro) !important; outline-offset: -2px; }
   .tile.ghost-p1 { outline: 2px solid var(--hydro) !important; outline-offset: -2px; }
   .tile.ghost-p2 { outline: 2px solid var(--electro) !important; outline-offset: -2px; }
@@ -369,7 +364,6 @@
     100%{transform:scale(.3); opacity:0; box-shadow:inset 0 0 0 0 transparent;}
   }
 
-  /* Right Column: Anchored Flex Column */
   .side.right{
     display:flex;
     flex-direction:column;
@@ -406,7 +400,6 @@
   .stat-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .stat-row span.val{color:var(--text);font-weight:600;}
 
-  /* Compact Activity Log Panel */
   .log-panel{
     flex-shrink:0;
   }
@@ -432,7 +425,6 @@
   .log .pts{margin-left:auto;color:var(--gold);font-weight:700;}
   .log-empty{font-size:11px;color:var(--text-dim);font-style:italic;}
 
-  /* Multiplayer Chat Anchored to Bottom Right Corner */
   .chat-panel{
     display:none;
     flex-direction:column;
@@ -496,7 +488,6 @@
   }
   .float-msg.show{opacity:1;transform:translateX(-50%) translateY(6px);}
 
-  /* Modals */
   .overlay{
     position:fixed;inset:0;
     background:rgba(5,7,14,.85);
@@ -741,7 +732,6 @@ function registerWord(wordKey, displayName, element){
   }
 }
 
-// Strict whole-name registration (Only Childe and Kuki have short aliases)
 RAW_CHARS.forEach(([display, el]) => {
   if (display.includes("Childe") || display.includes("Tartaglia")) {
     registerWord("TARTAGLIA", display, el);
@@ -782,13 +772,13 @@ function renderInlineRoster(){
     div.innerHTML = `<h4><span class="elem-dot" style="background:${ELEMENT_COLOR[el]}"></span>${ELEMENT_LABEL[el]}</h4>
       <div class="chip-row">${names.map(n => {
         const isCleared = completedNames.has(n);
-        return `<span class="chip \${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
+        return `<span class="chip ${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
       }).join('')}</div>`;
     container.appendChild(div);
   });
 }
 
-/* ---------------- Exact Weighted Distribution (Fixed) ---------------- */
+/* ---------------- Exact Weighted Distribution ---------------- */
 const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 const WEIGHTED_PROBS = {
@@ -1500,7 +1490,7 @@ function updateUndoButtons(){
   btnUndo.disabled = !canUndo;
 }
 
-function saveStateForUndo(beforeCompletedSnapshot = null){
+function saveStateForUndo(unlockedNames = []){
   if(inMultiplayerMode && lobbyPlayers.length > 1) return;
   historyStack.push({
     board: board.map(row => [...row]),
@@ -1509,7 +1499,7 @@ function saveStateForUndo(beforeCompletedSnapshot = null){
     currentTile,
     nextTile: null,
     logHTML: logList.innerHTML,
-    completedNames: new Set(beforeCompletedSnapshot !== null ? beforeCompletedSnapshot : completedNames)
+    unlockedOnThisMove: [...unlockedNames]
   });
   if(historyStack.length > 25) historyStack.shift();
   updateUndoButtons();
@@ -1524,7 +1514,11 @@ function undoLastMove(){
   currentTile = prev.currentTile;
   pendingNextTile = prev.nextTile;
   logList.innerHTML = prev.logHTML;
-  completedNames = new Set(prev.completedNames);
+
+  // ONLY unhighlight character names that were actually completed on THIS specific undone tile!
+  if(prev.unlockedOnThisMove && prev.unlockedOnThisMove.length > 0){
+    prev.unlockedOnThisMove.forEach(name => completedNames.delete(name));
+  }
   
   updateStats();
   renderBoard();
@@ -1638,9 +1632,7 @@ function onCellClick(r, c){
 function executeTilePlacement(r, c){
   if(board[r][c] !== null || placingLocked) return;
 
-  // Snapshot the roster before this tile is placed
-  const rosterSnapshotBeforeMove = new Set(completedNames);
-  saveStateForUndo(rosterSnapshotBeforeMove);
+  saveStateForUndo([]);
   board[r][c] = currentTile;
 
   currentTile = null;
@@ -1740,6 +1732,20 @@ function processMatches(callback){
   if(allMatches.length === 0){ 
     callback(); 
     return; 
+  }
+
+  // Find newly completed names on this move
+  const newlyClearedThisMove = [];
+  allMatches.forEach(m => {
+    const info = WORD_INFO[m.word];
+    if(info && info.display && !completedNames.has(info.display)){
+      newlyClearedThisMove.push(info.display);
+    }
+  });
+
+  // Track them on the last move's snapshot so undoing ONLY this tile reverts them
+  if(historyStack.length > 0){
+    historyStack[historyStack.length - 1].unlockedOnThisMove = newlyClearedThisMove;
   }
 
   const cellKeys = new Set();
