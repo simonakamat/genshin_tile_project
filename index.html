@@ -382,6 +382,33 @@
   .modal p.sub{color:var(--text-dim);font-size:12px;margin:0 0 12px;}
   .modal .close-row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
 
+  /* Roster List in Lobby */
+  #rosterList li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  #rosterList li.is-you {
+    border-color: var(--gold-dim);
+    background: #1e2842;
+  }
+  .player-order-pill {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--gold);
+    background: var(--bg-2);
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-right: 8px;
+  }
+
   .leaderboard-table{
     width:100%;
     border-collapse:collapse;
@@ -417,8 +444,7 @@
     </div>
     <div class="headerbtns">
       <span class="mp-badge" id="turnBadge" style="display:none;"></span>
-      <button class="btn" id="btnHost">Host (4P)</button>
-      <button class="btn" id="btnJoin">Join Room</button>
+      <button class="btn" id="btnMultiplayer">Multiplayer Lobby</button>
       <button class="btn" id="btnLeaderboard">Leaderboard</button>
       <button class="btn" id="btnUndo" disabled>Undo Placement</button>
       <button class="btn primary" id="btnNew">New Game</button>
@@ -468,6 +494,58 @@
 </div>
 
 <div class="float-msg" id="floatMsg"></div>
+
+<!-- Multiplayer Lobby Overlay -->
+<div class="overlay" id="lobbyOverlay">
+  <div class="modal" style="max-width: 460px;">
+    <h2>Co-op Staging Lobby</h2>
+    <p class="sub">Form a team of up to 4 players to take turns on a shared board.</p>
+
+    <!-- Setup View (Choose Host / Join) -->
+    <div id="lobbySetupView">
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 11px; text-transform: uppercase; color: var(--gold); letter-spacing:.05em; display:block; margin-bottom:4px;">Your Nickname</label>
+        <input type="text" id="inputPlayerName" maxlength="12" placeholder="e.g. Lumine" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:7px 10px; border-radius:6px; font-size:12px;">
+      </div>
+      
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px;">
+        <button class="btn primary" id="btnCreateLobby">Host New Room</button>
+        <button class="btn" id="btnOpenJoinView">Join Existing Room</button>
+      </div>
+
+      <div id="joinInputRow" style="display:none; margin-top:12px;">
+        <label style="font-size: 11px; text-transform: uppercase; color: var(--gold); letter-spacing:.05em; display:block; margin-bottom:4px;">Room Code</label>
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="inputRoomCode" maxlength="4" placeholder="e.g. TEYV" style="flex:1; text-transform:uppercase; background:var(--panel-2); border:1px solid var(--line); color:var(--gold); padding:7px 10px; border-radius:6px; font-weight:700; font-size:13px;">
+          <button class="btn primary" id="btnJoinLobby">Connect</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Room Roster View -->
+    <div id="lobbyRoomView" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; border-bottom:1px solid var(--line); padding-bottom:6px;">
+        <span style="font-size:12px; color:var(--text-dim);">Room Code: <strong id="displayRoomCode" style="color:var(--gold); font-size:14px; font-family:'Cinzel',serif;">----</strong></span>
+        <span id="playerCountLabel" style="font-size:11px; color:var(--text-dim);">1 / 4 Players</span>
+      </div>
+
+      <p style="font-size:11px; color:var(--text-dim); margin-top:0;">Turn Sequence (Player 1 moves first):</p>
+      
+      <!-- Real-time Connected Player List -->
+      <ul id="rosterList" style="list-style:none; padding:0; margin:0 0 16px 0;"></ul>
+
+      <div class="close-row" style="justify-content:space-between;">
+        <button class="btn" id="btnLeaveLobby">Leave Room</button>
+        <button class="btn primary" id="btnStartGame" style="display:none;">Start Game</button>
+        <span id="waitingHostNotice" style="font-size:11.5px; color:var(--gold-dim); font-style:italic; align-self:center; display:none;">Waiting for host to start...</span>
+      </div>
+    </div>
+
+    <div class="close-row" id="lobbyCloseRow" style="margin-top:10px;">
+      <button class="btn" id="btnCloseLobbyModal">Close</button>
+    </div>
+  </div>
+</div>
 
 <div class="overlay" id="lbOverlay">
   <div class="modal">
@@ -679,45 +757,41 @@ let historyStack = [];
 const boardEl = document.getElementById('board');
 const logList = document.getElementById('logList');
 const btnUndo = document.getElementById('btnUndo');
+const placementHint = document.getElementById('placementHint');
+const turnBadge = document.getElementById('turnBadge');
 
-/* ---------------- PeerJS 4-Player Collaborative Engine ---------------- */
+/* ---------------- Staging Lobby & Multiplayer Engine ---------------- */
 let peer = null;
 let connections = [];
 let isHost = false;
+let myPlayerName = "Traveler";
 let myPlayerIndex = 0;
 let currentTurnIndex = 0;
-let totalPlayers = 1;
+let roomCode = "";
+let gameInProgress = false;
+let lobbyPlayers = [];
 
-const turnBadge = document.getElementById('turnBadge');
-const btnHost = document.getElementById('btnHost');
-const btnJoin = document.getElementById('btnJoin');
-const placementHint = document.getElementById('placementHint');
+const lobbyOverlay = document.getElementById('lobbyOverlay');
+const lobbySetupView = document.getElementById('lobbySetupView');
+const lobbyRoomView = document.getElementById('lobbyRoomView');
+const rosterList = document.getElementById('rosterList');
+const playerCountLabel = document.getElementById('playerCountLabel');
+const displayRoomCode = document.getElementById('displayRoomCode');
+const btnStartGame = document.getElementById('btnStartGame');
+const waitingHostNotice = document.getElementById('waitingHostNotice');
+const joinInputRow = document.getElementById('joinInputRow');
 
-function updateMultiplayerUI(){
-  if(totalPlayers <= 1){
-    turnBadge.style.display = 'none';
-    placementHint.textContent = "Click any empty cell on the board";
-    btnUndo.style.display = 'inline-block';
-    return;
-  }
-  btnUndo.style.display = 'none'; // Undo disabled in live multi-player
-  turnBadge.style.display = 'inline-block';
-  
-  const isMyTurn = (myPlayerIndex === currentTurnIndex);
-  if(isMyTurn){
-    turnBadge.style.background = 'var(--panel-2)';
-    turnBadge.style.color = 'var(--dendro)';
-    turnBadge.style.borderColor = 'var(--dendro)';
-    turnBadge.textContent = `P${myPlayerIndex+1} (YOU) - YOUR TURN!`;
-    placementHint.textContent = "It's your turn — place your tile";
-  } else {
-    turnBadge.style.background = 'var(--panel)';
-    turnBadge.style.color = 'var(--gold-dim)';
-    turnBadge.style.borderColor = 'var(--line)';
-    turnBadge.textContent = `Player ${currentTurnIndex + 1}'s Turn`;
-    placementHint.textContent = `Waiting for Player ${currentTurnIndex + 1} to move...`;
-  }
-}
+document.getElementById('btnMultiplayer').addEventListener('click', () => {
+  lobbyOverlay.classList.add('show');
+});
+
+document.getElementById('btnCloseLobbyModal').addEventListener('click', () => {
+  lobbyOverlay.classList.remove('show');
+});
+
+document.getElementById('btnOpenJoinView').addEventListener('click', () => {
+  joinInputRow.style.display = 'block';
+});
 
 function broadcastToClients(msg){
   connections.forEach(conn => {
@@ -725,67 +799,139 @@ function broadcastToClients(msg){
   });
 }
 
-function initHost(customCode){
-  const cleanCode = (customCode || prompt("Enter a 4-letter Room Code (e.g. TEYV):") || "TEYV").trim().toUpperCase();
-  peer = new Peer("teyvat-" + cleanCode);
+function broadcastLobbyRoster() {
+  broadcastToClients({ type: 'ROSTER_UPDATE', players: lobbyPlayers });
+}
+
+function showRoomView() {
+  lobbySetupView.style.display = 'none';
+  lobbyRoomView.style.display = 'block';
+  document.getElementById('lobbyCloseRow').style.display = 'none';
+  displayRoomCode.textContent = roomCode;
+}
+
+function renderLobbyRoster() {
+  rosterList.innerHTML = '';
+  playerCountLabel.textContent = `${lobbyPlayers.length} / 4 Players`;
+
+  lobbyPlayers.forEach((p, idx) => {
+    const li = document.createElement('li');
+    if (p.index === myPlayerIndex) li.classList.add('is-you');
+
+    li.innerHTML = `
+      <div>
+        <span class="player-order-pill">P${idx + 1}</span>
+        <strong>${escapeHtml(p.name)}</strong>
+        ${p.index === myPlayerIndex ? '<span style="color:var(--text-dim); font-size:11px;"> (You)</span>' : ''}
+      </div>
+      <span style="font-size:11px; color:${p.isHost ? 'var(--gold)' : 'var(--text-dim)'}; font-weight:600;">
+        ${p.isHost ? 'HOST' : 'READY'}
+      </span>
+    `;
+    rosterList.appendChild(li);
+  });
+}
+
+function updateMultiplayerUI() {
+  if (!gameInProgress || lobbyPlayers.length <= 1) {
+    turnBadge.style.display = 'none';
+    placementHint.textContent = "Click any empty cell on the board";
+    btnUndo.style.display = 'inline-block';
+    return;
+  }
+
+  btnUndo.style.display = 'none'; // Undo disabled in live multi-player
+  turnBadge.style.display = 'inline-block';
+
+  const activePlayer = lobbyPlayers[currentTurnIndex] || { name: `P${currentTurnIndex + 1}` };
+  const isMyTurn = (myPlayerIndex === currentTurnIndex);
+
+  if (isMyTurn) {
+    turnBadge.style.background = 'var(--panel-2)';
+    turnBadge.style.color = 'var(--dendro)';
+    turnBadge.style.borderColor = 'var(--dendro)';
+    turnBadge.textContent = `YOUR TURN (${activePlayer.name})`;
+    placementHint.textContent = "Your turn — place a tile on the board";
+  } else {
+    turnBadge.style.background = 'var(--panel)';
+    turnBadge.style.color = 'var(--gold-dim)';
+    turnBadge.style.borderColor = 'var(--line)';
+    turnBadge.textContent = `${activePlayer.name}'s Turn (P${currentTurnIndex + 1})`;
+    placementHint.textContent = `Waiting for ${activePlayer.name} to place a tile...`;
+  }
+}
+
+// 1. Host creates a lobby
+document.getElementById('btnCreateLobby').addEventListener('click', () => {
+  const nameInput = document.getElementById('inputPlayerName').value.trim();
+  myPlayerName = nameInput || "Host";
+  roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+
+  peer = new Peer("teyvat-" + roomCode);
 
   peer.on('open', () => {
     isHost = true;
     myPlayerIndex = 0;
-    currentTurnIndex = 0;
-    totalPlayers = 1;
     connections = [];
-    btnHost.textContent = `Room: ${cleanCode}`;
-    btnHost.disabled = true;
-    btnJoin.style.display = 'none';
-    updateMultiplayerUI();
-    showFloatNotification(`ROOM CREATED: ${cleanCode}`);
+    gameInProgress = false;
+    lobbyPlayers = [{ name: myPlayerName, index: 0, isHost: true }];
+
+    showRoomView();
+    renderLobbyRoster();
+    btnStartGame.style.display = 'inline-block';
+    waitingHostNotice.style.display = 'none';
+    showFloatNotification(`ROOM CREATED: ${roomCode}`);
   });
 
   peer.on('connection', (conn) => {
-    if(connections.length >= 3){
+    if (connections.length >= 3 || gameInProgress) {
       conn.close();
       return;
     }
     connections.push(conn);
-    totalPlayers = connections.length + 1;
-    const assignedPlayerIndex = connections.length; // P2=1, P3=2, P4=3
 
-    conn.on('open', () => {
-      conn.send({
-        type: 'INIT_STATE',
-        board,
-        score,
-        cleared,
-        bestCombo,
-        currentTile,
-        completedNames: Array.from(completedNames),
-        playerIndex: assignedPlayerIndex,
-        totalPlayers,
-        currentTurnIndex
-      });
-      broadcastToClients({ type: 'PLAYER_COUNT_SYNC', totalPlayers, currentTurnIndex });
-      updateMultiplayerUI();
-      showFloatNotification(`PLAYER ${assignedPlayerIndex + 1} JOINED!`);
+    conn.on('data', (data) => {
+      if (data.type === 'PLAYER_HELLO') {
+        const newPlayerIndex = connections.length;
+        lobbyPlayers.push({ name: data.name, index: newPlayerIndex, isHost: false });
+        
+        conn.send({
+          type: 'LOBBY_WELCOME',
+          playerIndex: newPlayerIndex,
+          roomCode: roomCode,
+          players: lobbyPlayers
+        });
+
+        broadcastLobbyRoster();
+        renderLobbyRoster();
+        showFloatNotification(`${data.name} JOINED!`);
+      } else if (data.type === 'REQUEST_MOVE') {
+        if (!gameInProgress || currentTurnIndex !== data.senderIndex) return;
+        executeTilePlacement(data.r, data.c);
+      }
     });
 
-    conn.on('data', (data) => handleHostIncomingData(data, assignedPlayerIndex));
     conn.on('close', () => {
       connections = connections.filter(c => c !== conn);
-      totalPlayers = connections.length + 1;
-      broadcastToClients({ type: 'PLAYER_COUNT_SYNC', totalPlayers, currentTurnIndex });
-      updateMultiplayerUI();
+      lobbyPlayers = lobbyPlayers.filter(p => p.index === 0 || connections.some(c => c.open));
+      broadcastLobbyRoster();
+      renderLobbyRoster();
     });
   });
 
   peer.on('error', (err) => {
-    alert("Connection error: " + err.type + ". Room code may be taken.");
+    alert("Connection error: Room code might be occupied. Try again.");
   });
-}
+});
 
-function initJoin(){
-  const roomCode = (prompt("Enter 4-letter Room Code:") || "").trim().toUpperCase();
-  if(!roomCode) return;
+// 2. Client joins an existing lobby
+document.getElementById('btnJoinLobby').addEventListener('click', () => {
+  const nameInput = document.getElementById('inputPlayerName').value.trim();
+  const codeInput = document.getElementById('inputRoomCode').value.trim().toUpperCase();
+  if (!codeInput) return;
+
+  myPlayerName = nameInput || "Player";
+  roomCode = codeInput;
 
   peer = new Peer();
   peer.on('open', () => {
@@ -794,15 +940,58 @@ function initJoin(){
 
     conn.on('open', () => {
       isHost = false;
-      btnJoin.textContent = `Joined: ${roomCode}`;
-      btnJoin.disabled = true;
-      btnHost.style.display = 'none';
-      showFloatNotification(`CONNECTED TO ${roomCode}`);
+      conn.send({ type: 'PLAYER_HELLO', name: myPlayerName });
     });
 
-    conn.on('data', (data) => handleClientIncomingData(data));
+    conn.on('data', (data) => {
+      if (data.type === 'LOBBY_WELCOME') {
+        myPlayerIndex = data.playerIndex;
+        lobbyPlayers = data.players;
+        showRoomView();
+        renderLobbyRoster();
+        btnStartGame.style.display = 'none';
+        waitingHostNotice.style.display = 'inline-block';
+        showFloatNotification(`CONNECTED TO ${roomCode}`);
+      } else if (data.type === 'ROSTER_UPDATE') {
+        lobbyPlayers = data.players;
+        renderLobbyRoster();
+      } else if (data.type === 'START_MATCH') {
+        gameInProgress = true;
+        board = data.board;
+        score = data.score;
+        cleared = data.cleared;
+        bestCombo = data.bestCombo;
+        currentTile = data.currentTile;
+        currentTurnIndex = data.currentTurnIndex;
+        completedNames = new Set(data.completedNames);
+
+        lobbyOverlay.classList.remove('show');
+        renderBoard();
+        renderCurrentTile();
+        updateStats();
+        updateMultiplayerUI();
+        showFloatNotification("GAME STARTED!");
+      } else if (data.type === 'SYNC_BOARD_AND_TURN') {
+        board = data.board;
+        score = data.score;
+        cleared = data.cleared;
+        bestCombo = data.bestCombo;
+        currentTile = data.currentTile;
+        currentTurnIndex = data.currentTurnIndex;
+        completedNames = new Set(data.completedNames);
+
+        renderBoard();
+        renderCurrentTile();
+        renderInlineRoster();
+        updateStats();
+        updateMultiplayerUI();
+      } else if (data.type === 'TRIGGER_MATCH_ANIMATION') {
+        playMatchAnimation(data.cellKeys, data.allMatches, data.gained, data.hasCross);
+      }
+    });
+
     conn.on('close', () => {
-      alert("Disconnected from host room.");
+      alert("Host disconnected.");
       location.reload();
     });
   });
@@ -810,57 +999,35 @@ function initJoin(){
   peer.on('error', (err) => {
     alert("Could not connect to room: " + roomCode);
   });
-}
+});
 
-function handleHostIncomingData(data, senderIndex){
-  if(data.type === 'REQUEST_MOVE'){
-    if(currentTurnIndex !== senderIndex) return;
-    executeTilePlacement(data.r, data.c);
-  }
-}
+// 3. Host starts the game
+btnStartGame.addEventListener('click', () => {
+  if (!isHost) return;
+  gameInProgress = true;
+  currentTurnIndex = 0;
+  newGame();
 
-function handleClientIncomingData(data){
-  if(data.type === 'INIT_STATE'){
-    board = data.board;
-    score = data.score;
-    cleared = data.cleared;
-    bestCombo = data.bestCombo;
-    currentTile = data.currentTile;
-    completedNames = new Set(data.completedNames);
-    myPlayerIndex = data.playerIndex;
-    totalPlayers = data.totalPlayers;
-    currentTurnIndex = data.currentTurnIndex;
+  broadcastToClients({
+    type: 'START_MATCH',
+    board,
+    score,
+    cleared,
+    bestCombo,
+    currentTile,
+    completedNames: Array.from(completedNames),
+    currentTurnIndex
+  });
 
-    renderBoard();
-    renderCurrentTile();
-    renderInlineRoster();
-    updateStats();
-    updateMultiplayerUI();
-  } else if(data.type === 'SYNC_BOARD_AND_TURN'){
-    board = data.board;
-    score = data.score;
-    cleared = data.cleared;
-    bestCombo = data.bestCombo;
-    currentTile = data.currentTile;
-    completedNames = new Set(data.completedNames);
-    currentTurnIndex = data.currentTurnIndex;
+  lobbyOverlay.classList.remove('show');
+  updateMultiplayerUI();
+  showFloatNotification("GAME STARTED!");
+});
 
-    renderBoard();
-    renderCurrentTile();
-    renderInlineRoster();
-    updateStats();
-    updateMultiplayerUI();
-  } else if(data.type === 'PLAYER_COUNT_SYNC'){
-    totalPlayers = data.totalPlayers;
-    currentTurnIndex = data.currentTurnIndex;
-    updateMultiplayerUI();
-  } else if(data.type === 'TRIGGER_MATCH_ANIMATION'){
-    playMatchAnimation(data.cellKeys, data.allMatches, data.gained, data.hasCross);
-  }
-}
-
-btnHost.addEventListener('click', () => initHost());
-btnJoin.addEventListener('click', () => initJoin());
+document.getElementById('btnLeaveLobby').addEventListener('click', () => {
+  if (peer) peer.destroy();
+  location.reload();
+});
 
 /* ---------------- Board & Turn Core ---------------- */
 function emptyBoard(){
@@ -870,12 +1037,12 @@ function emptyBoard(){
 }
 
 function updateUndoButtons(){
-  const canUndo = historyStack.length > 0 && !placingLocked && !gameOver && (totalPlayers <= 1);
+  const canUndo = historyStack.length > 0 && !placingLocked && !gameOver && (!gameInProgress || lobbyPlayers.length <= 1);
   btnUndo.disabled = !canUndo;
 }
 
 function saveStateForUndo(){
-  if(totalPlayers > 1) return; // Undo is only enabled in solo mode
+  if(gameInProgress && lobbyPlayers.length > 1) return;
   historyStack.push({
     board: board.map(row => [...row]),
     score,
@@ -891,7 +1058,7 @@ function saveStateForUndo(){
 }
 
 function undoLastMove(){
-  if(historyStack.length === 0 || placingLocked || gameOver || totalPlayers > 1) return;
+  if(historyStack.length === 0 || placingLocked || gameOver || (gameInProgress && lobbyPlayers.length > 1)) return;
   const prev = historyStack.pop();
   board = prev.board;
   score = prev.score;
@@ -911,7 +1078,7 @@ function undoLastMove(){
 }
 
 function newGame(){
-  if(totalPlayers > 1 && !isHost){
+  if(gameInProgress && lobbyPlayers.length > 1 && !isHost){
     showFloatNotification("ONLY HOST CAN RESTART");
     return;
   }
@@ -932,7 +1099,7 @@ function newGame(){
   updateUndoButtons();
   updateMultiplayerUI();
 
-  if(isHost && totalPlayers > 1){
+  if(isHost && gameInProgress && lobbyPlayers.length > 1){
     broadcastToClients({
       type: 'SYNC_BOARD_AND_TURN',
       board,
@@ -994,14 +1161,17 @@ function onCellClick(r, c){
   if(gameOver || placingLocked) return;
   if(board[r][c] !== null) return;
 
-  if(totalPlayers > 1){
+  if(lobbyPlayers.length > 1){
+    if(!gameInProgress){
+      showFloatNotification("WAIT FOR HOST TO START GAME");
+      return;
+    }
     if(myPlayerIndex !== currentTurnIndex){
       showFloatNotification("WAIT FOR YOUR TURN!");
       return;
     }
     if(!isHost){
-      // Forward move request to host
-      connections[0].send({ type: 'REQUEST_MOVE', r, c });
+      connections[0].send({ type: 'REQUEST_MOVE', r, c, senderIndex: myPlayerIndex });
       return;
     }
   }
@@ -1042,9 +1212,8 @@ function afterPlacement(){
     historyStack[historyStack.length - 1].nextTile = currentTile;
   }
 
-  // Rotate turn in multiplayer
-  if(totalPlayers > 1 && isHost){
-    currentTurnIndex = (currentTurnIndex + 1) % totalPlayers;
+  if(lobbyPlayers.length > 1 && isHost){
+    currentTurnIndex = (currentTurnIndex + 1) % lobbyPlayers.length;
     broadcastToClients({
       type: 'SYNC_BOARD_AND_TURN',
       board,
@@ -1144,8 +1313,7 @@ function processMatches(callback){
   cleared += allMatches.length;
   bestCombo = Math.max(bestCombo, allMatches.length);
 
-  // Sync animation to all clients if Host
-  if(isHost && totalPlayers > 1){
+  if(isHost && lobbyPlayers.length > 1){
     broadcastToClients({
       type: 'TRIGGER_MATCH_ANIMATION',
       cellKeys: Array.from(cellKeys),
@@ -1332,7 +1500,7 @@ document.getElementById('selTileMode').addEventListener('change', (e) => {
 
 document.querySelectorAll('.overlay').forEach(ov => {
   ov.addEventListener('click', (e) => {
-    if(e.target === ov) ov.classList.remove('show');
+    if(e.target === ov && ov !== lobbyOverlay) ov.classList.remove('show');
   });
 });
 
