@@ -453,7 +453,7 @@
       <div class="eyebrow">15×15 Board</div>
     </div>
     <div class="headerbtns">
-      <button class="btn" id="btnModeToggle">Multiplayer Lobby</button>
+      <button class="btn" id="btnModeToggle">Create/Join Lobby</button>
       <button class="btn" id="btnUndo" disabled>Undo Placement</button>
       <button class="btn primary" id="btnNew">New Game</button>
     </div>
@@ -931,7 +931,7 @@ function setMultiplayerActive(active) {
     btnModeToggle.textContent = "Leave Lobby";
     btnModeToggle.classList.add("leave-btn");
   } else {
-    btnModeToggle.textContent = "Multiplayer Lobby";
+    btnModeToggle.textContent = "Create/Join Lobby";
     btnModeToggle.classList.remove("leave-btn");
     mpTurnHeader.style.display = 'none';
     placementHint.textContent = "Click any empty cell on the board";
