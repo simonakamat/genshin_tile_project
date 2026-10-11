@@ -117,12 +117,12 @@
     border-color:#ff8b8b;
   }
 
-  /* Optimized 3-Column Layout with Enlarged Left Roster */
+  /* 3-Column Layout with Stretch Alignment */
   .layout{
     display:grid;
-    grid-template-columns:480px 1fr 280px;
+    grid-template-columns:460px 1fr 280px;
     gap:14px;
-    align-items:start;
+    align-items:stretch;
   }
 
   @media (max-width: 1250px) {
@@ -147,41 +147,49 @@
     margin:0 0 6px;
   }
 
-  /* Left Column: Enlarged Roster to Align with Board */
+  /* Left Column: Full-Height Roster Box */
+  .side.left{
+    display:flex;
+    flex-direction:column;
+  }
   .roster-panel{
-    padding:12px 14px;
+    height:100%;
+    box-sizing:border-box;
+    padding:10px 14px;
     display:flex;
     flex-direction:column;
   }
   #inlineRoster{
     display:flex;
     flex-direction:column;
-    gap:8px;
+    justify-content:space-between;
+    height:100%;
+    flex:1;
   }
   .elem-group{margin-bottom:0;}
   .elem-group h4{
-    font-size:11.5px;
+    font-size:11px;
     text-transform:uppercase;
     letter-spacing:.08em;
-    margin:0 0 4px;
+    margin:0 0 3px;
     display:flex;
     align-items:center;
-    gap:6px;
+    gap:5px;
   }
-  .elem-dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
+  .elem-dot{width:6px;height:6px;border-radius:50%;display:inline-block;}
   .chip-row{
     display:flex;
     flex-wrap:wrap;
-    gap:4px 5px;
+    gap:3px 4px;
   }
   .chip{
-    font-size:11.5px;
+    font-size:11px;
     background:var(--panel-2);
     color:var(--text);
     border:1px solid var(--line);
-    padding:3px 8px;
+    padding:2.5px 7px;
     border-radius:12px;
-    line-height:1.2;
+    line-height:1.15;
     font-weight:500;
     transition:background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
   }
@@ -317,13 +325,15 @@
     100%{transform:scale(.3); opacity:0; box-shadow:inset 0 0 0 0 transparent;}
   }
 
-  /* Right Column: Score, Log, Bottom Chat */
+  /* Right Column: Anchored Flex Column Matching Board Baseline */
   .side.right{
     display:flex;
     flex-direction:column;
+    height:100%;
   }
   .score-panel{
     padding:10px 12px;
+    flex-shrink:0;
   }
   .score-panel .score-big{
     font-family:'Cinzel',serif;
@@ -352,7 +362,20 @@
   .stat-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .stat-row span.val{color:var(--text);font-weight:600;}
 
-  .log{list-style:none;margin:0;padding:0;max-height:180px;overflow-y:auto;}
+  /* Activity Log Panel takes up flexible middle space */
+  .side.right .panel:nth-child(2){
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .log{
+    list-style:none;
+    margin:0;
+    padding:0;
+    flex:1;
+    overflow-y:auto;
+  }
   .log li{
     font-size:11px;
     padding:4px 0;
@@ -368,12 +391,13 @@
   .log .pts{margin-left:auto;color:var(--gold);font-weight:700;}
   .log-empty{font-size:11px;color:var(--text-dim);font-style:italic;}
 
-  /* Multiplayer Chat Box */
+  /* Option A: Multiplayer Chat Anchored to Bottom Right Corner */
   .chat-panel{
     display:none;
     flex-direction:column;
-    height:250px;
-    margin-top:10px;
+    height:240px;
+    margin-top:auto;
+    flex-shrink:0;
   }
   .chat-messages{
     list-style:none;
@@ -548,7 +572,7 @@
         <ul class="log" id="logList"></ul>
       </div>
 
-      <!-- In-game Multiplayer Chat (Bottom Right) -->
+      <!-- Option A: Anchored Bottom-Right Team Chat -->
       <div class="panel chat-panel" id="mpChatPanel">
         <h3>Team Chat</h3>
         <ul class="chat-messages" id="chatList"></ul>
@@ -857,7 +881,6 @@ document.getElementById('btnOpenJoinView').addEventListener('click', () => {
   joinInputRow.style.display = 'block';
 });
 
-// Broadcast helper: option to exclude sender to prevent echo
 function broadcastToClients(msg, excludeConn = null){
   connections.forEach(conn => {
     if(conn && conn.open && conn !== excludeConn) {
@@ -1020,13 +1043,13 @@ function sendChatMessage() {
     playerIndex: myPlayerIndex
   };
 
-  appendChatMessage(msg); // Render locally for sender
+  appendChatMessage(msg);
   chatInput.value = '';
 
   if (isHost) {
-    broadcastToClients(msg); // Host relays to all guests
+    broadcastToClients(msg);
   } else if (connections[0]) {
-    connections[0].send(msg); // Guest sends to host only
+    connections[0].send(msg);
   }
 }
 
@@ -1162,7 +1185,6 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
         executeTilePlacement(data.r, data.c);
       } else if (data.type === 'CHAT_MSG') {
         appendChatMessage(data);
-        // Relay to other clients excluding the sender to avoid duplicates
         broadcastToClients(data, conn);
       } else if (data.type === 'HOVER_MOVE') {
         setGhostHover(data.playerIndex, data.r, data.c);
