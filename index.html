@@ -872,6 +872,7 @@ let lobbyPlayers = [];
 
 const playerHoveredCells = {};
 
+// Full STUN/TURN ICE server list for cross-device & cross-network connections
 const PEER_CONFIG = {
   config: {
     iceServers: [
@@ -1512,8 +1513,7 @@ function saveStateForUndo(){
     cleared,
     currentTile,
     nextTile: null,
-    logHTML: logList.innerHTML,
-    completedNames: new Set(completedNames)
+    logHTML: logList.innerHTML
   });
   if(historyStack.length > 25) historyStack.shift();
   updateUndoButtons();
@@ -1529,10 +1529,7 @@ function undoLastMove(){
   pendingNextTile = prev.nextTile;
   logList.innerHTML = prev.logHTML;
   
-  // Keep all completed green names preserved across undos
-  if (prev.completedNames) {
-    prev.completedNames.forEach(name => completedNames.add(name));
-  }
+  // completedNames is NEVER touched or overwritten here!
   
   updateStats();
   renderBoard();
