@@ -516,7 +516,7 @@
       <div id="joinInputRow" style="display:none; margin-top:12px;">
         <label style="font-size: 11px; text-transform: uppercase; color: var(--gold); letter-spacing:.05em; display:block; margin-bottom:4px;">Room Code</label>
         <div style="display:flex; gap:6px;">
-          <input type="text" id="inputRoomCode" maxlength="4" placeholder="e.g. TEYV" style="flex:1; text-transform:uppercase; background:var(--panel-2); border:1px solid var(--line); color:var(--gold); padding:7px 10px; border-radius:6px; font-weight:700; font-size:13px;">
+          <input type="text" id="inputRoomCode" maxlength="4" placeholder="e.g. 2TK3" style="flex:1; text-transform:uppercase; background:var(--panel-2); border:1px solid var(--line); color:var(--gold); padding:7px 10px; border-radius:6px; font-weight:700; font-size:13px;">
           <button class="btn primary" id="btnJoinLobby">Connect</button>
         </div>
       </div>
@@ -760,7 +760,7 @@ const btnUndo = document.getElementById('btnUndo');
 const placementHint = document.getElementById('placementHint');
 const turnBadge = document.getElementById('turnBadge');
 
-/* ---------------- Staging Lobby & Multiplayer Engine ---------------- */
+/* ---------------- Staging Lobby & Multiplayer Engine (With STUN Fallback) ---------------- */
 let peer = null;
 let connections = [];
 let isHost = false;
@@ -771,6 +771,16 @@ let roomCode = "";
 let gameInProgress = false;
 let lobbyPlayers = [];
 
+// Free public STUN configuration for cross-network WebRTC connections
+const PEER_CONFIG = {
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  }
+};
+
 const lobbyOverlay = document.getElementById('lobbyOverlay');
 const lobbySetupView = document.getElementById('lobbySetupView');
 const lobbyRoomView = document.getElementById('lobbyRoomView');
@@ -780,6 +790,7 @@ const displayRoomCode = document.getElementById('displayRoomCode');
 const btnStartGame = document.getElementById('btnStartGame');
 const waitingHostNotice = document.getElementById('waitingHostNotice');
 const joinInputRow = document.getElementById('joinInputRow');
+const btnJoinLobby = document.getElementById('btnJoinLobby');
 
 document.getElementById('btnMultiplayer').addEventListener('click', () => {
   lobbyOverlay.classList.add('show');
@@ -795,7 +806,7 @@ document.getElementById('btnOpenJoinView').addEventListener('click', () => {
 
 function broadcastToClients(msg){
   connections.forEach(conn => {
-    if(conn.open) conn.send(msg);
+    if(conn && conn.open) conn.send(msg);
   });
 }
 
@@ -867,7 +878,8 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
   myPlayerName = nameInput || "Host";
   roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
 
-  peer = new Peer("teyvat-" + roomCode);
+  if (peer) peer.destroy();
+  peer = new Peer("teyvat-" + roomCode, PEER_CONFIG);
 
   peer.on('open', () => {
     isHost = true;
@@ -917,10 +929,12 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
       broadcastLobbyRoster();
       renderLobbyRoster();
     });
+
+    conn.on('error', (err) => console.error("Host conn error:", err));
   });
 
   peer.on('error', (err) => {
-    alert("Connection error: Room code might be occupied. Try again.");
+    alert("Peer error: " + err.type + ". Room code may be taken or server busy. Please try again.");
   });
 });
 
@@ -928,23 +942,43 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
 document.getElementById('btnJoinLobby').addEventListener('click', () => {
   const nameInput = document.getElementById('inputPlayerName').value.trim();
   const codeInput = document.getElementById('inputRoomCode').value.trim().toUpperCase();
-  if (!codeInput) return;
+  if (!codeInput) {
+    alert("Please enter a 4-letter room code!");
+    return;
+  }
 
   myPlayerName = nameInput || "Player";
   roomCode = codeInput;
 
-  peer = new Peer();
+  btnJoinLobby.textContent = "Connecting...";
+  btnJoinLobby.disabled = true;
+
+  if (peer) peer.destroy();
+  peer = new Peer(PEER_CONFIG);
+
   peer.on('open', () => {
-    const conn = peer.connect("teyvat-" + roomCode);
+    const targetPeerId = "teyvat-" + roomCode;
+    const conn = peer.connect(targetPeerId, { reliable: true });
     connections = [conn];
 
+    const connectTimeout = setTimeout(() => {
+      if (!conn.open && lobbySetupView.style.display !== 'none') {
+        btnJoinLobby.textContent = "Connect";
+        btnJoinLobby.disabled = false;
+        alert(`Could not connect to room "${roomCode}". Make sure the host is currently in the lobby and the code is correct.`);
+      }
+    }, 8000);
+
     conn.on('open', () => {
+      clearTimeout(connectTimeout);
       isHost = false;
       conn.send({ type: 'PLAYER_HELLO', name: myPlayerName });
     });
 
     conn.on('data', (data) => {
       if (data.type === 'LOBBY_WELCOME') {
+        btnJoinLobby.textContent = "Connect";
+        btnJoinLobby.disabled = false;
         myPlayerIndex = data.playerIndex;
         lobbyPlayers = data.players;
         showRoomView();
@@ -991,13 +1025,22 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
     });
 
     conn.on('close', () => {
-      alert("Host disconnected.");
+      alert("Host disconnected or closed room.");
       location.reload();
+    });
+
+    conn.on('error', (err) => {
+      clearTimeout(connectTimeout);
+      btnJoinLobby.textContent = "Connect";
+      btnJoinLobby.disabled = false;
+      alert("Connection error: " + err);
     });
   });
 
   peer.on('error', (err) => {
-    alert("Could not connect to room: " + roomCode);
+    btnJoinLobby.textContent = "Connect";
+    btnJoinLobby.disabled = false;
+    alert("Connection error: " + err.type + ". Room code may not exist.");
   });
 });
 
