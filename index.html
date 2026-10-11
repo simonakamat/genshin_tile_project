@@ -117,7 +117,7 @@
     border-color:#ff8b8b;
   }
 
-  /* 3-Column Layout with Stretch Alignment */
+  /* 3-Column Layout */
   .layout{
     display:grid;
     grid-template-columns:460px 1fr 280px;
@@ -325,7 +325,7 @@
     100%{transform:scale(.3); opacity:0; box-shadow:inset 0 0 0 0 transparent;}
   }
 
-  /* Right Column: Anchored Flex Column Matching Board Baseline */
+  /* Right Column: Anchored Flex Column */
   .side.right{
     display:flex;
     flex-direction:column;
@@ -362,18 +362,15 @@
   .stat-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .stat-row span.val{color:var(--text);font-weight:600;}
 
-  /* Activity Log Panel takes up flexible middle space */
-  .side.right .panel:nth-child(2){
-    flex:1;
-    min-height:0;
-    display:flex;
-    flex-direction:column;
+  /* Compact Activity Log Panel (Natural Height with Scrolling) */
+  .log-panel{
+    flex-shrink:0;
   }
   .log{
     list-style:none;
     margin:0;
     padding:0;
-    flex:1;
+    max-height:150px;
     overflow-y:auto;
   }
   .log li{
@@ -391,7 +388,7 @@
   .log .pts{margin-left:auto;color:var(--gold);font-weight:700;}
   .log-empty{font-size:11px;color:var(--text-dim);font-style:italic;}
 
-  /* Option A: Multiplayer Chat Anchored to Bottom Right Corner */
+  /* Multiplayer Chat Anchored to Bottom Right Corner */
   .chat-panel{
     display:none;
     flex-direction:column;
@@ -557,22 +554,16 @@
         <div class="score-big" id="scoreVal">0</div>
         <div class="score-label">Score</div>
         <div class="stat-row"><span>Names cleared</span><span class="val" id="statCleared">0</span></div>
-        <div class="stat-row"><span>Best combo</span><span class="val" id="statCombo">×1</span></div>
-        <div class="stat-row" style="align-items:center; margin-top:8px;">
-          <span>Tile Distribution</span>
-          <select id="selTileMode" style="background:var(--panel-2); color:var(--gold); border:1px solid var(--line); border-radius:4px; font-size:11px; padding:2px 6px;">
-            <option value="weighted" selected>Weighted Random</option>
-            <option value="uniform">Fully Random</option>
-          </select>
-        </div>
+        <div class="stat-row"><span>Tile Distribution</span><span class="val" style="color:var(--gold);">Weighted</span></div>
       </div>
 
-      <div class="panel" style="flex:1;">
+      <!-- Natural Height Activity Log -->
+      <div class="panel log-panel">
         <h3>Activity Log</h3>
         <ul class="log" id="logList"></ul>
       </div>
 
-      <!-- Option A: Anchored Bottom-Right Team Chat -->
+      <!-- Anchored Bottom-Right Team Chat -->
       <div class="panel chat-panel" id="mpChatPanel">
         <h3>Team Chat</h3>
         <ul class="chat-messages" id="chatList"></ul>
@@ -645,7 +636,6 @@
     <div class="go-stats">
       <div><span>Final score</span><span id="goScore">0</span></div>
       <div><span>Names cleared</span><span id="goCleared">0</span></div>
-      <div><span>Best combo</span><span id="goCombo">×1</span></div>
     </div>
     <div class="close-row">
       <button class="btn primary" id="btnRestart">Play Again</button>
@@ -752,7 +742,7 @@ function renderInlineRoster(){
   });
 }
 
-/* ---------------- Exact Probability Curve ---------------- */
+/* ---------------- Exact Weighted Distribution (Fixed) ---------------- */
 const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 const WEIGHTED_PROBS = {
@@ -784,26 +774,21 @@ const WEIGHTED_PROBS = {
   Z: 0.0192
 };
 
-let letterMode = 'weighted';
-
 function weightedLetter(){
-  if(letterMode === 'weighted'){
-    let r = Math.random();
-    for(let i = 0; i < ALPHA.length; i++){
-      const letter = ALPHA[i];
-      r -= WEIGHTED_PROBS[letter];
-      if(r <= 0) return letter;
-    }
-    return ALPHA[ALPHA.length - 1];
+  let r = Math.random();
+  for(let i = 0; i < ALPHA.length; i++){
+    const letter = ALPHA[i];
+    r -= WEIGHTED_PROBS[letter];
+    if(r <= 0) return letter;
   }
-  return ALPHA[Math.floor(Math.random() * ALPHA.length)];
+  return ALPHA[ALPHA.length - 1];
 }
 
 /* ---------------- Game State (15x15) ---------------- */
 const ROWS = 15;
 const COLS = 15;
 let board = [];
-let score = 0, cleared = 0, bestCombo = 1;
+let score = 0, cleared = 0;
 let gameOver = false;
 let currentTile = null;
 let pendingNextTile = null;
@@ -1167,7 +1152,6 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
           board: board,
           score: score,
           cleared: cleared,
-          bestCombo: bestCombo,
           currentTile: currentTile,
           currentTurnIndex: currentTurnIndex,
           completedNames: Array.from(completedNames)
@@ -1231,7 +1215,6 @@ function handlePeerDisconnect(conn, name) {
       board,
       score,
       cleared,
-      bestCombo,
       currentTile,
       completedNames: Array.from(completedNames),
       currentTurnIndex,
@@ -1296,7 +1279,6 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
           board = data.board;
           score = data.score;
           cleared = data.cleared;
-          bestCombo = data.bestCombo;
           currentTile = data.currentTile;
           currentTurnIndex = data.currentTurnIndex;
           completedNames = new Set(data.completedNames);
@@ -1321,7 +1303,6 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
         board = data.board;
         score = data.score;
         cleared = data.cleared;
-        bestCombo = data.bestCombo;
         currentTile = data.currentTile;
         currentTurnIndex = data.currentTurnIndex;
         completedNames = new Set(data.completedNames);
@@ -1337,7 +1318,6 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
         board = data.board;
         score = data.score;
         cleared = data.cleared;
-        bestCombo = data.bestCombo;
         currentTile = data.currentTile;
         currentTurnIndex = data.currentTurnIndex;
         completedNames = new Set(data.completedNames);
@@ -1390,7 +1370,6 @@ btnStartGame.addEventListener('click', () => {
     board,
     score,
     cleared,
-    bestCombo,
     currentTile,
     completedNames: Array.from(completedNames),
     currentTurnIndex,
@@ -1431,7 +1410,6 @@ function saveStateForUndo(){
     board: board.map(row => [...row]),
     score,
     cleared,
-    bestCombo,
     currentTile,
     nextTile: null,
     logHTML: logList.innerHTML,
@@ -1447,7 +1425,6 @@ function undoLastMove(){
   board = prev.board;
   score = prev.score;
   cleared = prev.cleared;
-  bestCombo = prev.bestCombo;
   currentTile = prev.currentTile;
   pendingNextTile = prev.nextTile;
   logList.innerHTML = prev.logHTML;
@@ -1474,7 +1451,7 @@ function newGame(){
   currentTurnIndex = 0;
   document.getElementById('goOverlay').classList.remove('show');
   board = emptyBoard();
-  score = 0; cleared = 0; bestCombo = 1;
+  score = 0; cleared = 0;
   logList.innerHTML = '<li class="log-empty">No names cleared yet — place your first tile.</li>';
   updateStats();
   renderBoard();
@@ -1489,7 +1466,6 @@ function newGame(){
       board,
       score,
       cleared,
-      bestCombo,
       currentTile,
       completedNames: Array.from(completedNames),
       currentTurnIndex,
@@ -1519,7 +1495,6 @@ function triggerGameOver(){
   updateUndoButtons();
   document.getElementById('goScore').textContent = score;
   document.getElementById('goCleared').textContent = cleared;
-  document.getElementById('goCombo').textContent = '×'+bestCombo;
   document.getElementById('goOverlay').classList.add('show');
 }
 
@@ -1605,7 +1580,6 @@ function afterPlacement(){
       board,
       score,
       cleared,
-      bestCombo,
       currentTile,
       completedNames: Array.from(completedNames),
       currentTurnIndex,
@@ -1698,7 +1672,6 @@ function processMatches(callback){
 
   score += gained;
   cleared += allMatches.length;
-  bestCombo = Math.max(bestCombo, allMatches.length);
 
   if(isHost && inMultiplayerMode && lobbyPlayers.length > 1){
     broadcastToClients({
@@ -1798,7 +1771,6 @@ function showFloatNotification(msg){
 function updateStats(){
   document.getElementById('scoreVal').textContent = score;
   document.getElementById('statCleared').textContent = cleared;
-  document.getElementById('statCombo').textContent = '×' + bestCombo;
 }
 
 function escapeHtml(str){
@@ -1814,11 +1786,6 @@ document.getElementById('btnRestart').addEventListener('click', () => {
   newGame();
 });
 document.getElementById('btnUndo').addEventListener('click', undoLastMove);
-
-document.getElementById('selTileMode').addEventListener('change', (e) => {
-  letterMode = e.target.value;
-  showFloatNotification(`MODE: ${letterMode.toUpperCase()}`);
-});
 
 document.querySelectorAll('.overlay').forEach(ov => {
   ov.addEventListener('click', (e) => {
