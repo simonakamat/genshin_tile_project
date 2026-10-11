@@ -116,6 +116,20 @@
     background:#3d1d21;
     border-color:#ff8b8b;
   }
+  button.btn.kick-btn{
+    background:#2b1517;
+    border:1px solid #772b2b;
+    color:#ff9e9e;
+    font-size:10px;
+    padding:2px 7px;
+    border-radius:4px;
+    margin-left:8px;
+    cursor:pointer;
+  }
+  button.btn.kick-btn:hover{
+    background:#441a1d;
+    border-color:#ff6b6b;
+  }
 
   /* 3-Column Layout */
   .layout{
@@ -362,7 +376,7 @@
   .stat-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .stat-row span.val{color:var(--text);font-weight:600;}
 
-  /* Compact Activity Log Panel (Natural Height with Scrolling) */
+  /* Compact Activity Log Panel */
   .log-panel{
     flex-shrink:0;
   }
@@ -563,12 +577,12 @@
         <ul class="log" id="logList"></ul>
       </div>
 
-      <!-- Anchored Bottom-Right Team Chat -->
+      <!-- Anchored Bottom-Right Team Chat (Unlimited Length) -->
       <div class="panel chat-panel" id="mpChatPanel">
         <h3>Team Chat</h3>
         <ul class="chat-messages" id="chatList"></ul>
         <div class="chat-input-row">
-          <input type="text" id="chatInput" maxlength="60" placeholder="Type a message...">
+          <input type="text" id="chatInput" placeholder="Type a message...">
           <button class="btn primary" id="btnSendChat" style="padding:4px 8px;">Send</button>
         </div>
       </div>
@@ -581,7 +595,7 @@
 
 <!-- Multiplayer Lobby Overlay -->
 <div class="overlay" id="lobbyOverlay">
-  <div class="modal" style="max-width: 460px;">
+  <div class="modal" style="max-width: 480px;">
     <h2>Co-op Staging Lobby</h2>
     <p class="sub">Form a team of up to 4 players to place tiles on a shared board.</p>
 
@@ -821,11 +835,15 @@ let lobbyPlayers = [];
 
 const playerHoveredCells = {};
 
+// Full STUN/TURN ICE server list for cross-device & cross-network connections
 const PEER_CONFIG = {
   config: {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' }
     ]
   }
 };
@@ -867,6 +885,7 @@ document.getElementById('btnOpenJoinView').addEventListener('click', () => {
 });
 
 function broadcastToClients(msg, excludeConn = null){
+  cleanClosedConnections();
   connections.forEach(conn => {
     if(conn && conn.open && conn !== excludeConn) {
       conn.send(msg);
@@ -885,6 +904,10 @@ function showRoomView() {
   displayRoomCode.textContent = roomCode;
 }
 
+function cleanClosedConnections() {
+  connections = connections.filter(c => c && c.open);
+}
+
 function renderLobbyRoster() {
   rosterList.innerHTML = '';
   playerCountLabel.textContent = `${lobbyPlayers.length} / 4 Players`;
@@ -893,19 +916,40 @@ function renderLobbyRoster() {
     const li = document.createElement('li');
     if (p.index === myPlayerIndex) li.classList.add('is-you');
 
+    const canKick = isHost && p.index !== 0;
+
     li.innerHTML = `
-      <div>
+      <div style="display:flex; align-items:center;">
         <span class="player-order-pill">P${idx + 1}</span>
         <strong>${escapeHtml(p.name)}</strong>
         ${p.index === myPlayerIndex ? '<span style="color:var(--text-dim); font-size:11px;"> (You)</span>' : ''}
       </div>
-      <span style="font-size:11px; color:${p.isHost ? 'var(--gold)' : 'var(--text-dim)'}; font-weight:600;">
-        ${p.isHost ? 'HOST' : (gameInProgress ? 'PLAYING' : 'READY')}
-      </span>
+      <div style="display:flex; align-items:center;">
+        <span style="font-size:11px; color:${p.isHost ? 'var(--gold)' : 'var(--text-dim)'}; font-weight:600;">
+          ${p.isHost ? 'HOST' : (gameInProgress ? 'PLAYING' : 'READY')}
+        </span>
+        ${canKick ? `<button class="btn kick-btn" onclick="kickPlayer(\${p.index})">Kick</button>` : ''}
+      </div>
     `;
     rosterList.appendChild(li);
   });
 }
+
+// Host kick player logic
+window.kickPlayer = function(targetIndex) {
+  if (!isHost || targetIndex === 0) return;
+  const targetPlayer = lobbyPlayers.find(p => p.index === targetIndex);
+  if (!targetPlayer) return;
+
+  if (confirm(`Kick ${targetPlayer.name} from the session?`)) {
+    const targetConn = connections.find(c => c._playerName === targetPlayer.name || c._playerIndex === targetIndex);
+    if (targetConn && targetConn.open) {
+      targetConn.send({ type: 'KICKED_FROM_LOBBY' });
+      targetConn.close();
+    }
+    handlePeerDisconnect(targetConn, targetPlayer.name);
+  }
+};
 
 function updateMultiplayerUI() {
   if (!inMultiplayerMode || !gameInProgress) {
@@ -1131,6 +1175,7 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
   });
 
   peer.on('connection', (conn) => {
+    cleanClosedConnections();
     if (connections.length >= 3) {
       conn.close();
       return;
@@ -1139,10 +1184,16 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
 
     conn.on('data', (data) => {
       if (data.type === 'PLAYER_HELLO') {
-        const newPlayerIndex = connections.length;
+        cleanClosedConnections();
+        const newPlayerIndex = connections.indexOf(conn) + 1;
         conn._playerName = data.name;
+        conn._playerIndex = newPlayerIndex;
+
+        // Ensure no duplicate registration
+        lobbyPlayers = lobbyPlayers.filter(p => p.name !== data.name);
         lobbyPlayers.push({ name: data.name, index: newPlayerIndex, isHost: false });
         
+        // Immediate full match & board synchronization for mid-game cross-device joins
         conn.send({
           type: 'LOBBY_WELCOME',
           playerIndex: newPlayerIndex,
@@ -1194,8 +1245,9 @@ document.getElementById('btnCreateLobby').addEventListener('click', () => {
 });
 
 function handlePeerDisconnect(conn, name) {
-  const leavingName = name || conn._playerName || "A player";
+  const leavingName = name || (conn ? conn._playerName : null) || "A player";
   connections = connections.filter(c => c !== conn);
+  cleanClosedConnections();
   
   showFloatNotification(`${leavingName.toUpperCase()} LEFT`);
   broadcastToClients({ type: 'PLAYER_LEFT_NOTICE', playerName: leavingName });
@@ -1251,9 +1303,9 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
       if (!conn.open && lobbySetupView.style.display !== 'none') {
         btnJoinLobby.textContent = "Connect";
         btnJoinLobby.disabled = false;
-        alert(`Could not connect to room "${roomCode}". Make sure the host is currently in the lobby and the code is correct.`);
+        alert(`Could not connect to room "${roomCode}". Make sure the host is currently connected and the code is correct.`);
       }
-    }, 8000);
+    }, 10000);
 
     conn.on('open', () => {
       clearTimeout(connectTimeout);
@@ -1274,6 +1326,7 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
         waitingHostNotice.style.display = 'inline-block';
         showFloatNotification(`CONNECTED TO ${roomCode}`);
 
+        // Mid-game catchup
         if (data.gameInProgress) {
           gameInProgress = true;
           board = data.board;
@@ -1298,6 +1351,8 @@ document.getElementById('btnJoinLobby').addEventListener('click', () => {
         showFloatNotification(`${data.playerName.toUpperCase()} LEFT THE ROOM`);
       } else if (data.type === 'HOST_CLOSED_SESSION') {
         terminateMultiplayerSession("The host closed the room. You have returned to Single Player mode.");
+      } else if (data.type === 'KICKED_FROM_LOBBY') {
+        terminateMultiplayerSession("You have been kicked from the lobby by the host.");
       } else if (data.type === 'START_MATCH') {
         gameInProgress = true;
         board = data.board;
