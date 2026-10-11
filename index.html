@@ -1529,8 +1529,6 @@ function undoLastMove(){
   pendingNextTile = prev.nextTile;
   logList.innerHTML = prev.logHTML;
   
-  // completedNames is NEVER touched or overwritten here!
-  
   updateStats();
   renderBoard();
   renderCurrentTile();
