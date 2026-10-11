@@ -565,7 +565,6 @@
       <div class="eyebrow">15×15 Board</div>
     </div>
     <div class="headerbtns">
-      <!-- Persistent Click-to-Copy Room Code Badge -->
       <span class="room-badge" id="roomCodeBadge" title="Click to copy room code">
         <span>ROOM: <strong id="headerRoomCode">----</strong></span>
         <span class="copy-hint">(Copy)</span>
@@ -606,13 +605,11 @@
         <div class="stat-row"><span>Tile Distribution</span><span class="val" style="color:var(--gold);">Weighted</span></div>
       </div>
 
-      <!-- Natural Height Activity Log -->
       <div class="panel log-panel">
         <h3>Activity Log</h3>
         <ul class="log" id="logList"></ul>
       </div>
 
-      <!-- Anchored Bottom-Right Team Chat (Unlimited Length) -->
       <div class="panel chat-panel" id="mpChatPanel">
         <h3>Team Chat</h3>
         <ul class="chat-messages" id="chatList"></ul>
@@ -785,7 +782,7 @@ function renderInlineRoster(){
     div.innerHTML = `<h4><span class="elem-dot" style="background:${ELEMENT_COLOR[el]}"></span>${ELEMENT_LABEL[el]}</h4>
       <div class="chip-row">${names.map(n => {
         const isCleared = completedNames.has(n);
-        return `<span class="chip ${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
+        return `<span class="chip \${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
       }).join('')}</div>`;
     container.appendChild(div);
   });
@@ -872,7 +869,6 @@ let lobbyPlayers = [];
 
 const playerHoveredCells = {};
 
-// Full STUN/TURN ICE server list for cross-device & cross-network connections
 const PEER_CONFIG = {
   config: {
     iceServers: [
@@ -896,7 +892,6 @@ const waitingHostNotice = document.getElementById('waitingHostNotice');
 const joinInputRow = document.getElementById('joinInputRow');
 const btnJoinLobby = document.getElementById('btnJoinLobby');
 
-// One-click copy room code from header
 roomCodeBadge.addEventListener('click', () => {
   if (!roomCode) return;
   navigator.clipboard.writeText(roomCode).then(() => {
@@ -1505,7 +1500,7 @@ function updateUndoButtons(){
   btnUndo.disabled = !canUndo;
 }
 
-function saveStateForUndo(){
+function saveStateForUndo(beforeCompletedSnapshot = null){
   if(inMultiplayerMode && lobbyPlayers.length > 1) return;
   historyStack.push({
     board: board.map(row => [...row]),
@@ -1513,7 +1508,8 @@ function saveStateForUndo(){
     cleared,
     currentTile,
     nextTile: null,
-    logHTML: logList.innerHTML
+    logHTML: logList.innerHTML,
+    completedNames: new Set(beforeCompletedSnapshot !== null ? beforeCompletedSnapshot : completedNames)
   });
   if(historyStack.length > 25) historyStack.shift();
   updateUndoButtons();
@@ -1528,6 +1524,7 @@ function undoLastMove(){
   currentTile = prev.currentTile;
   pendingNextTile = prev.nextTile;
   logList.innerHTML = prev.logHTML;
+  completedNames = new Set(prev.completedNames);
   
   updateStats();
   renderBoard();
@@ -1641,7 +1638,9 @@ function onCellClick(r, c){
 function executeTilePlacement(r, c){
   if(board[r][c] !== null || placingLocked) return;
 
-  saveStateForUndo();
+  // Snapshot the roster before this tile is placed
+  const rosterSnapshotBeforeMove = new Set(completedNames);
+  saveStateForUndo(rosterSnapshotBeforeMove);
   board[r][c] = currentTile;
 
   currentTile = null;
