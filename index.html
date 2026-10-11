@@ -6,6 +6,8 @@
 <title>Teyvat Tiles</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- WebRTC PeerJS for GitHub Pages Multiplayer -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   :root{
     --bg:#0a0e1a;
@@ -83,7 +85,7 @@
     vertical-align:middle;
   }
 
-  .headerbtns{display:flex;gap:6px;}
+  .headerbtns{display:flex;gap:6px;align-items:center;}
   button.btn{
     font-family:'Inter',sans-serif;
     font-weight:600;
@@ -105,6 +107,17 @@
     border:none;
   }
   button.btn.primary:hover{filter:brightness(1.08);}
+
+  .mp-badge{
+    font-size:11px;
+    font-weight:700;
+    padding:4px 9px;
+    border-radius:6px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    letter-spacing:.05em;
+    text-transform:uppercase;
+  }
 
   /* Main 3-Column Layout */
   .layout{
@@ -403,6 +416,9 @@
       <div class="eyebrow">15×15 Board</div>
     </div>
     <div class="headerbtns">
+      <span class="mp-badge" id="turnBadge" style="display:none;"></span>
+      <button class="btn" id="btnHost">Host (4P)</button>
+      <button class="btn" id="btnJoin">Join Room</button>
       <button class="btn" id="btnLeaderboard">Leaderboard</button>
       <button class="btn" id="btnUndo" disabled>Undo Placement</button>
       <button class="btn primary" id="btnNew">New Game</button>
@@ -422,7 +438,7 @@
       <div class="top-tile-bar">
         <span class="lbl">Current Tile:</span>
         <div id="currentTileEl" class="current-tile"></div>
-        <span class="hint">Click any empty cell on the board</span>
+        <span class="hint" id="placementHint">Click any empty cell on the board</span>
       </div>
       <div id="board"></div>
     </div>
@@ -501,22 +517,22 @@ const RAW_CHARS = [
   ["Dehya","pyro"],["Lyney","pyro"],["Chevreuse","pyro"],["Gaming","pyro"],["Arlecchino","pyro"],
   ["Nicole","pyro"],["Durin","pyro"],["Mavuika","pyro"],
 
-  // Hydro (17/18)
+  // Hydro (17)
   ["Ayato","hydro"],["Yelan","hydro"],["Candace","hydro"],["Barbara","hydro"],["Nilou","hydro"],["Neuvillette","hydro"],
-  ["Kokomi","hydro"], ["Childe / Tartaglia","hydro"], ["Aino","hydro"],["Furina","hydro"],["Sigewinne","hydro"],
-  ["Mualani","hydro"],["Dahlia","hydro"],["Columbina","hydro"], ["Xingqiu","hydro"], ["Mona","hydro"], ["Vodyanitsa","hydro"],
+  ["Kokomi","hydro"],["Childe / Tartaglia","hydro"],["Aino","hydro"],["Furina","hydro"],["Sigewinne","hydro"],
+  ["Mualani","hydro"],["Dahlia","hydro"],["Columbina","hydro"],["Xingqiu","hydro"],["Mona","hydro"],["Vodyanitsa","hydro"],
 
   // Anemo (19)
   ["Jean","anemo"],["Venti","anemo"],["Sucrose","anemo"],["Xiao","anemo"],["Kazuha","anemo"],
   ["Sayu","anemo"],["Heizou","anemo"],["Faruzan","anemo"],["Wanderer","anemo"],["Lynette","anemo"],
   ["Xianyun","anemo"],["Chasca","anemo"],["Mizuki","anemo"],["Lan Yan","anemo"],["Prune","anemo"],
-  ["Varka","anemo"],["Ifa","anemo"],["Jahoda","anemo"], ["Vesna","anemo"],
+  ["Varka","anemo"],["Ifa","anemo"],["Jahoda","anemo"],["Vesna","anemo"],
 
-  // Electro (21/22)
+  // Electro (21)
   ["Lisa","electro"],["Razor","electro"],["Beidou","electro"],["Fischl","electro"],["Keqing","electro"],
   ["Raiden","electro"],["Sara","electro"],["Yae Miko","electro"],["Kuki / Shinobu","electro"],["Dori","electro"],
   ["Cyno","electro"],["Clorinde","electro"],["Sethos","electro"],["Ororon","electro"],["Iansan","electro"],
-  ["Alyosha","electro"],["Flins","electro"],["Varesa","electro"],["Ineffa","electro"], ["Mitya","electro"], ["Valeriy","electro"],
+  ["Alyosha","electro"],["Flins","electro"],["Varesa","electro"],["Ineffa","electro"],["Mitya","electro"],["Valeriy","electro"],
 
   // Cryo (21)
   ["Kaeya","cryo"],["Chongyun","cryo"],["Qiqi","cryo"],["Diona","cryo"],["Ganyu","cryo"],
@@ -547,12 +563,24 @@ function registerWord(wordKey, displayName, element){
 // Register playable strings and aliases
 RAW_CHARS.forEach(([display, el]) => {
   if (display.includes("Childe") || display.includes("Tartaglia")) {
-    registerWord("TARTAGLIA", display, "hydro");
-    registerWord("CHILDE", display, "hydro");
+    registerWord("TARTAGLIA", display, el);
+    registerWord("CHILDE", display, el);
   } else if (display.includes("Kuki") || display.includes("Shinobu")) {
-    registerWord("KUKI", display, "electro");
-    registerWord("SHINOBU", display, "electro");
-    registerWord("KUKISHINOBU", display, "electro");
+    registerWord("KUKI", display, el);
+    registerWord("SHINOBU", display, el);
+    registerWord("KUKISHINOBU", display, el);
+  } else if (display === "Hu Tao") {
+    registerWord("HUTAO", display, el);
+    registerWord("HU", display, el);
+    registerWord("TAO", display, el);
+  } else if (display === "Yae Miko") {
+    registerWord("YAEMIKO", display, el);
+    registerWord("YAE", display, el);
+    registerWord("MIKO", display, el);
+  } else if (display === "Lan Yan") {
+    registerWord("LANYAN", display, el);
+    registerWord("LAN", display, el);
+    registerWord("YAN", display, el);
   } else {
     registerWord(display, display, el);
   }
@@ -568,7 +596,6 @@ const ELEMENT_LABEL = {pyro:"Pyro",hydro:"Hydro",anemo:"Anemo",electro:"Electro"
 
 let completedNames = new Set();
 
-/* ---------------- Render Compact In-Page Roster ---------------- */
 function renderInlineRoster(){
   const container = document.getElementById('inlineRoster');
   const groups = {};
@@ -585,16 +612,15 @@ function renderInlineRoster(){
     div.innerHTML = `<h4><span class="elem-dot" style="background:${ELEMENT_COLOR[el]}"></span>${ELEMENT_LABEL[el]}</h4>
       <div class="chip-row">${names.map(n => {
         const isCleared = completedNames.has(n);
-        return `<span class="chip ${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
+        return `<span class="chip \${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
       }).join('')}</div>`;
     container.appendChild(div);
   });
 }
 
-/* ---------------- Option 2: Normalized Direct Probability Curve ---------------- */
+/* ---------------- Exact Probability Curve ---------------- */
 const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-// 70% Roster weight + 30% Uniform smoothing curve
 const WEIGHTED_PROBS = {
   A: 0.1095,
   B: 0.0211,
@@ -624,7 +650,6 @@ const WEIGHTED_PROBS = {
   Z: 0.0192
 };
 
-
 let letterMode = 'weighted';
 
 function weightedLetter(){
@@ -637,7 +662,6 @@ function weightedLetter(){
     }
     return ALPHA[ALPHA.length - 1];
   }
-  // Uniform 1/26 random
   return ALPHA[Math.floor(Math.random() * ALPHA.length)];
 }
 
@@ -656,6 +680,189 @@ const boardEl = document.getElementById('board');
 const logList = document.getElementById('logList');
 const btnUndo = document.getElementById('btnUndo');
 
+/* ---------------- PeerJS 4-Player Collaborative Engine ---------------- */
+let peer = null;
+let connections = [];
+let isHost = false;
+let myPlayerIndex = 0;
+let currentTurnIndex = 0;
+let totalPlayers = 1;
+
+const turnBadge = document.getElementById('turnBadge');
+const btnHost = document.getElementById('btnHost');
+const btnJoin = document.getElementById('btnJoin');
+const placementHint = document.getElementById('placementHint');
+
+function updateMultiplayerUI(){
+  if(totalPlayers <= 1){
+    turnBadge.style.display = 'none';
+    placementHint.textContent = "Click any empty cell on the board";
+    btnUndo.style.display = 'inline-block';
+    return;
+  }
+  btnUndo.style.display = 'none'; // Undo disabled in live multi-player
+  turnBadge.style.display = 'inline-block';
+  
+  const isMyTurn = (myPlayerIndex === currentTurnIndex);
+  if(isMyTurn){
+    turnBadge.style.background = 'var(--panel-2)';
+    turnBadge.style.color = 'var(--dendro)';
+    turnBadge.style.borderColor = 'var(--dendro)';
+    turnBadge.textContent = `P${myPlayerIndex+1} (YOU) - YOUR TURN!`;
+    placementHint.textContent = "It's your turn — place your tile";
+  } else {
+    turnBadge.style.background = 'var(--panel)';
+    turnBadge.style.color = 'var(--gold-dim)';
+    turnBadge.style.borderColor = 'var(--line)';
+    turnBadge.textContent = `Player ${currentTurnIndex + 1}'s Turn`;
+    placementHint.textContent = `Waiting for Player ${currentTurnIndex + 1} to move...`;
+  }
+}
+
+function broadcastToClients(msg){
+  connections.forEach(conn => {
+    if(conn.open) conn.send(msg);
+  });
+}
+
+function initHost(customCode){
+  const cleanCode = (customCode || prompt("Enter a 4-letter Room Code (e.g. TEYV):") || "TEYV").trim().toUpperCase();
+  peer = new Peer("teyvat-" + cleanCode);
+
+  peer.on('open', () => {
+    isHost = true;
+    myPlayerIndex = 0;
+    currentTurnIndex = 0;
+    totalPlayers = 1;
+    connections = [];
+    btnHost.textContent = `Room: ${cleanCode}`;
+    btnHost.disabled = true;
+    btnJoin.style.display = 'none';
+    updateMultiplayerUI();
+    showFloatNotification(`ROOM CREATED: ${cleanCode}`);
+  });
+
+  peer.on('connection', (conn) => {
+    if(connections.length >= 3){
+      conn.close();
+      return;
+    }
+    connections.push(conn);
+    totalPlayers = connections.length + 1;
+    const assignedPlayerIndex = connections.length; // P2=1, P3=2, P4=3
+
+    conn.on('open', () => {
+      conn.send({
+        type: 'INIT_STATE',
+        board,
+        score,
+        cleared,
+        bestCombo,
+        currentTile,
+        completedNames: Array.from(completedNames),
+        playerIndex: assignedPlayerIndex,
+        totalPlayers,
+        currentTurnIndex
+      });
+      broadcastToClients({ type: 'PLAYER_COUNT_SYNC', totalPlayers, currentTurnIndex });
+      updateMultiplayerUI();
+      showFloatNotification(`PLAYER ${assignedPlayerIndex + 1} JOINED!`);
+    });
+
+    conn.on('data', (data) => handleHostIncomingData(data, assignedPlayerIndex));
+    conn.on('close', () => {
+      connections = connections.filter(c => c !== conn);
+      totalPlayers = connections.length + 1;
+      broadcastToClients({ type: 'PLAYER_COUNT_SYNC', totalPlayers, currentTurnIndex });
+      updateMultiplayerUI();
+    });
+  });
+
+  peer.on('error', (err) => {
+    alert("Connection error: " + err.type + ". Room code may be taken.");
+  });
+}
+
+function initJoin(){
+  const roomCode = (prompt("Enter 4-letter Room Code:") || "").trim().toUpperCase();
+  if(!roomCode) return;
+
+  peer = new Peer();
+  peer.on('open', () => {
+    const conn = peer.connect("teyvat-" + roomCode);
+    connections = [conn];
+
+    conn.on('open', () => {
+      isHost = false;
+      btnJoin.textContent = `Joined: ${roomCode}`;
+      btnJoin.disabled = true;
+      btnHost.style.display = 'none';
+      showFloatNotification(`CONNECTED TO ${roomCode}`);
+    });
+
+    conn.on('data', (data) => handleClientIncomingData(data));
+    conn.on('close', () => {
+      alert("Disconnected from host room.");
+      location.reload();
+    });
+  });
+
+  peer.on('error', (err) => {
+    alert("Could not connect to room: " + roomCode);
+  });
+}
+
+function handleHostIncomingData(data, senderIndex){
+  if(data.type === 'REQUEST_MOVE'){
+    if(currentTurnIndex !== senderIndex) return;
+    executeTilePlacement(data.r, data.c);
+  }
+}
+
+function handleClientIncomingData(data){
+  if(data.type === 'INIT_STATE'){
+    board = data.board;
+    score = data.score;
+    cleared = data.cleared;
+    bestCombo = data.bestCombo;
+    currentTile = data.currentTile;
+    completedNames = new Set(data.completedNames);
+    myPlayerIndex = data.playerIndex;
+    totalPlayers = data.totalPlayers;
+    currentTurnIndex = data.currentTurnIndex;
+
+    renderBoard();
+    renderCurrentTile();
+    renderInlineRoster();
+    updateStats();
+    updateMultiplayerUI();
+  } else if(data.type === 'SYNC_BOARD_AND_TURN'){
+    board = data.board;
+    score = data.score;
+    cleared = data.cleared;
+    bestCombo = data.bestCombo;
+    currentTile = data.currentTile;
+    completedNames = new Set(data.completedNames);
+    currentTurnIndex = data.currentTurnIndex;
+
+    renderBoard();
+    renderCurrentTile();
+    renderInlineRoster();
+    updateStats();
+    updateMultiplayerUI();
+  } else if(data.type === 'PLAYER_COUNT_SYNC'){
+    totalPlayers = data.totalPlayers;
+    currentTurnIndex = data.currentTurnIndex;
+    updateMultiplayerUI();
+  } else if(data.type === 'TRIGGER_MATCH_ANIMATION'){
+    playMatchAnimation(data.cellKeys, data.allMatches, data.gained, data.hasCross);
+  }
+}
+
+btnHost.addEventListener('click', () => initHost());
+btnJoin.addEventListener('click', () => initJoin());
+
+/* ---------------- Board & Turn Core ---------------- */
 function emptyBoard(){
   const b = [];
   for(let r=0; r<ROWS; r++){ b.push(new Array(COLS).fill(null)); }
@@ -663,11 +870,12 @@ function emptyBoard(){
 }
 
 function updateUndoButtons(){
-  const canUndo = historyStack.length > 0 && !placingLocked && !gameOver;
+  const canUndo = historyStack.length > 0 && !placingLocked && !gameOver && (totalPlayers <= 1);
   btnUndo.disabled = !canUndo;
 }
 
 function saveStateForUndo(){
+  if(totalPlayers > 1) return; // Undo is only enabled in solo mode
   historyStack.push({
     board: board.map(row => [...row]),
     score,
@@ -683,7 +891,7 @@ function saveStateForUndo(){
 }
 
 function undoLastMove(){
-  if(historyStack.length === 0 || placingLocked || gameOver) return;
+  if(historyStack.length === 0 || placingLocked || gameOver || totalPlayers > 1) return;
   const prev = historyStack.pop();
   board = prev.board;
   score = prev.score;
@@ -703,11 +911,16 @@ function undoLastMove(){
 }
 
 function newGame(){
+  if(totalPlayers > 1 && !isHost){
+    showFloatNotification("ONLY HOST CAN RESTART");
+    return;
+  }
   gameOver = false;
   placingLocked = false;
   historyStack = [];
   pendingNextTile = null;
   completedNames.clear();
+  currentTurnIndex = 0;
   document.getElementById('goOverlay').classList.remove('show');
   board = emptyBoard();
   score = 0; cleared = 0; bestCombo = 1;
@@ -717,6 +930,20 @@ function newGame(){
   drawNextTile();
   renderInlineRoster();
   updateUndoButtons();
+  updateMultiplayerUI();
+
+  if(isHost && totalPlayers > 1){
+    broadcastToClients({
+      type: 'SYNC_BOARD_AND_TURN',
+      board,
+      score,
+      cleared,
+      bestCombo,
+      currentTile,
+      completedNames: Array.from(completedNames),
+      currentTurnIndex
+    });
+  }
 }
 
 function drawNextTile(){
@@ -766,9 +993,26 @@ function renderBoard(){
 function onCellClick(r, c){
   if(gameOver || placingLocked) return;
   if(board[r][c] !== null) return;
-  
-  saveStateForUndo();
 
+  if(totalPlayers > 1){
+    if(myPlayerIndex !== currentTurnIndex){
+      showFloatNotification("WAIT FOR YOUR TURN!");
+      return;
+    }
+    if(!isHost){
+      // Forward move request to host
+      connections[0].send({ type: 'REQUEST_MOVE', r, c });
+      return;
+    }
+  }
+
+  executeTilePlacement(r, c);
+}
+
+function executeTilePlacement(r, c){
+  if(board[r][c] !== null || placingLocked) return;
+
+  saveStateForUndo();
   board[r][c] = currentTile;
   currentTile = null;
   renderCurrentTile();
@@ -798,8 +1042,24 @@ function afterPlacement(){
     historyStack[historyStack.length - 1].nextTile = currentTile;
   }
 
+  // Rotate turn in multiplayer
+  if(totalPlayers > 1 && isHost){
+    currentTurnIndex = (currentTurnIndex + 1) % totalPlayers;
+    broadcastToClients({
+      type: 'SYNC_BOARD_AND_TURN',
+      board,
+      score,
+      cleared,
+      bestCombo,
+      currentTile,
+      completedNames: Array.from(completedNames),
+      currentTurnIndex
+    });
+  }
+
   placingLocked = false;
   updateUndoButtons();
+  updateMultiplayerUI();
 }
 
 function getRuns(lineArr){
@@ -819,12 +1079,19 @@ function findMatchesInLine(lineArr, dir, index){
   const matches = [];
   const runs = getRuns(lineArr);
   runs.forEach(run => {
-    const text = run.text, len = text.length;
-    for(let i=0; i<len; i++){
-      for(let j=i+2; j<len; j++){
-        const sub = text.substring(i, j+1);
-        if(WORD_SET.has(sub)){
-          matches.push({dir, lineIndex:index, start:run.start+i, end: run.start + j, word:sub});
+    const text = run.text;
+    const len = text.length;
+    for (let start = 0; start < len; start++) {
+      for (let end = start + 2; end <= len; end++) {
+        const sub = text.slice(start, end);
+        if (WORD_SET.has(sub)) {
+          matches.push({
+            dir: dir,
+            lineIndex: index,
+            start: run.start + start,
+            end: run.start + start + sub.length - 1,
+            word: sub
+          });
         }
       }
     }
@@ -877,32 +1144,18 @@ function processMatches(callback){
   cleared += allMatches.length;
   bestCombo = Math.max(bestCombo, allMatches.length);
 
-  // Turn completed character roster bubble light green
-  allMatches.forEach(m => {
-    const info = WORD_INFO[m.word];
-    if(info && info.display){
-      completedNames.add(info.display);
-      const chip = document.querySelector(`.chip[data-name="${CSS.escape(info.display)}"]`);
-      if(chip) chip.classList.add('cleared');
-    }
-  });
+  // Sync animation to all clients if Host
+  if(isHost && totalPlayers > 1){
+    broadcastToClients({
+      type: 'TRIGGER_MATCH_ANIMATION',
+      cellKeys: Array.from(cellKeys),
+      allMatches,
+      gained,
+      hasCross
+    });
+  }
 
-  cellKeys.forEach(key => {
-    const [r,c] = key.split(',').map(Number);
-    const el = boardEl.querySelector(`[data-r="${r}"][data-c="${c}"]`);
-    if(el){
-      const wordHere = allMatches.find(m => {
-        if(m.dir==='row') return m.lineIndex===r && c>=m.start && c<=m.end;
-        return m.lineIndex===c && r>=m.start && r<=m.end;
-      });
-      const color = wordHere ? ELEMENT_COLOR[WORD_INFO[wordHere.word]?.element] : 'var(--gold)';
-      el.style.setProperty('--clear-color', color);
-      el.classList.add('clearing');
-    }
-  });
-
-  logMatches(allMatches, gained, hasCross);
-  showFloatMessage(allMatches.length, hasCross);
+  playMatchAnimation(Array.from(cellKeys), allMatches, gained, hasCross);
 
   setTimeout(() => {
     cellKeys.forEach(key => {
@@ -913,6 +1166,38 @@ function processMatches(callback){
     updateStats();
     callback();
   }, 420);
+}
+
+function playMatchAnimation(keysArray, matches, gained, hasCross){
+  matches.forEach(m => {
+    const info = WORD_INFO[m.word];
+    if(info && info.display){
+      completedNames.add(info.display);
+      const allChips = document.querySelectorAll('.chip');
+      allChips.forEach(chip => {
+        if(chip.getAttribute('data-name') === info.display){
+          chip.classList.add('cleared');
+        }
+      });
+    }
+  });
+
+  keysArray.forEach(key => {
+    const [r,c] = key.split(',').map(Number);
+    const el = boardEl.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+    if(el){
+      const wordHere = matches.find(m => {
+        if(m.dir==='row') return m.lineIndex===r && c>=m.start && c<=m.end;
+        return m.lineIndex===c && r>=m.start && r<=m.end;
+      });
+      const color = wordHere ? ELEMENT_COLOR[WORD_INFO[wordHere.word]?.element] : 'var(--gold)';
+      el.style.setProperty('--clear-color', color);
+      el.classList.add('clearing');
+    }
+  });
+
+  logMatches(matches, gained, hasCross);
+  showFloatMessage(matches.length, hasCross);
 }
 
 function logMatches(matches, gained, hasCross){
