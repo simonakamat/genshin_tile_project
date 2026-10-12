@@ -131,7 +131,6 @@
     border-color:#ff6b6b;
   }
 
-  /* Persistent Header Room Code Display */
   .room-badge{
     display:none;
     align-items:center;
@@ -161,7 +160,6 @@
     letter-spacing:.05em;
   }
 
-  /* 3-Column Layout */
   .layout{
     display:grid;
     grid-template-columns:460px 1fr 280px;
@@ -191,7 +189,6 @@
     margin:0 0 6px;
   }
 
-  /* Left Column: Full-Height Roster Box */
   .side.left{
     display:flex;
     flex-direction:column;
@@ -244,7 +241,6 @@
     font-weight:700;
   }
 
-  /* Center Column: Board */
   .board-col{
     display:flex;
     flex-direction:column;
@@ -368,7 +364,6 @@
     100%{transform:scale(.3); opacity:0; box-shadow:inset 0 0 0 0 transparent;}
   }
 
-  /* Right Column */
   .side.right{
     display:flex;
     flex-direction:column;
@@ -412,7 +407,7 @@
   .log{
     list-style:none;
     margin:0;
-    padding:0 12px 0 0; /* Padding ensures point badges never touch scrollbar */
+    padding:0 12px 0 0;
     max-height:150px;
     overflow-y:auto;
     scrollbar-width:thin;
@@ -863,7 +858,7 @@ let currentTile = null;
 let placingLocked = false;
 let historyStack = [];
 
-// Future tile queue ensures chained undos/redos receive the exact same letters
+// Deterministic future queue: preserves upcoming letters across undos
 let futureTilesQueue = [];
 
 const boardEl = document.getElementById('board');
@@ -1175,7 +1170,7 @@ function clearGhostHover(pIndex) {
   renderGhostHovers();
 }
 
-function clearAllGhostHovers() {
+function clearAllGhostHover() {
   for (let k in playerHoveredCells) delete playerHoveredCells[k];
   renderGhostHovers();
 }
@@ -1525,7 +1520,7 @@ function updateUndoButtons(){
   btnUndo.disabled = !canUndo;
 }
 
-function saveStateForUndo(unlockedNames = []){
+function saveStateForUndo(){
   if(inMultiplayerMode && lobbyPlayers.length > 1) return;
   historyStack.push({
     board: board.map(row => [...row]),
@@ -1533,7 +1528,7 @@ function saveStateForUndo(unlockedNames = []){
     cleared,
     currentTile,
     logHTML: logList.innerHTML,
-    unlockedOnThisMove: [...unlockedNames]
+    completedNames: new Set(completedNames)
   });
   if(historyStack.length > 25) historyStack.shift();
   updateUndoButtons();
@@ -1547,20 +1542,16 @@ function undoLastMove(){
   score = prev.score;
   cleared = prev.cleared;
 
-  // Preserve upcoming tile sequence deterministically across multiple chained undos:
-  // Push the tile that was just undone back into the front of the future queue
+  // Preserve the upcoming tile queue so chained undos roll the exact same letters
   if(currentTile !== null){
     futureTilesQueue.unshift(currentTile);
   }
   
-  // Re-seat the exact tile that was active before this move was placed
   currentTile = prev.currentTile;
   logList.innerHTML = prev.logHTML;
 
-  // Only remove characters cleared on this specific reverted placement
-  if(prev.unlockedOnThisMove && prev.unlockedOnThisMove.length > 0){
-    prev.unlockedOnThisMove.forEach(name => completedNames.delete(name));
-  }
+  // Restores the exact set of completed names that were active before this move was played
+  completedNames = new Set(prev.completedNames);
   
   updateStats();
   renderBoard();
@@ -1607,7 +1598,6 @@ function newGame(){
 }
 
 function drawNextTile(){
-  // If we have preserved tiles from earlier undos, draw the exact letter from the queue
   if(futureTilesQueue.length > 0){
     currentTile = futureTilesQueue.shift();
   } else {
@@ -1679,7 +1669,7 @@ function onCellClick(r, c){
 function executeTilePlacement(r, c){
   if(board[r][c] !== null || placingLocked) return;
 
-  saveStateForUndo([]);
+  saveStateForUndo();
   board[r][c] = currentTile;
 
   currentTile = null;
@@ -1771,18 +1761,6 @@ function processMatches(callback){
     return; 
   }
 
-  const newlyClearedThisMove = [];
-  allMatches.forEach(m => {
-    const info = WORD_INFO[m.word];
-    if(info && info.display && !completedNames.has(info.display)){
-      newlyClearedThisMove.push(info.display);
-    }
-  });
-
-  if(historyStack.length > 0){
-    historyStack[historyStack.length - 1].unlockedOnThisMove = newlyClearedThisMove;
-  }
-
   const cellKeys = new Set();
   allMatches.forEach(m => {
     if(m.dir === 'row'){
@@ -1823,6 +1801,11 @@ function processMatches(callback){
   }
 
   playMatchAnimation(Array.from(cellKeys), allMatches, gained, hasCross);
+
+  // Synchronize the current snapshot's completedNames to include this newly cleared word
+  if(historyStack.length > 0){
+    historyStack[historyStack.length - 1].completedNames = new Set(completedNames);
+  }
 
   setTimeout(() => {
     cellKeys.forEach(key => {
