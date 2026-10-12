@@ -131,6 +131,7 @@
     border-color:#ff6b6b;
   }
 
+  /* Persistent Header Room Code Display */
   .room-badge{
     display:none;
     align-items:center;
@@ -160,6 +161,7 @@
     letter-spacing:.05em;
   }
 
+  /* 3-Column Layout */
   .layout{
     display:grid;
     grid-template-columns:460px 1fr 280px;
@@ -189,6 +191,7 @@
     margin:0 0 6px;
   }
 
+  /* Left Column: Full-Height Roster Box */
   .side.left{
     display:flex;
     flex-direction:column;
@@ -241,6 +244,7 @@
     font-weight:700;
   }
 
+  /* Center Column: Board */
   .board-col{
     display:flex;
     flex-direction:column;
@@ -364,6 +368,7 @@
     100%{transform:scale(.3); opacity:0; box-shadow:inset 0 0 0 0 transparent;}
   }
 
+  /* Right Column */
   .side.right{
     display:flex;
     flex-direction:column;
@@ -400,28 +405,28 @@
   .stat-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .stat-row span.val{color:var(--text);font-weight:600;}
 
-  /* Activity Log Panel with Clean Scrollbar */
+  /* Activity Log Panel with Clean Thin Scrollbar That Never Covers Scores */
   .log-panel{
     flex-shrink:0;
   }
   .log{
     list-style:none;
     margin:0;
-    padding:0 8px 0 0;
+    padding:0 12px 0 0; /* Padding ensures point badges never touch scrollbar */
     max-height:150px;
     overflow-y:auto;
     scrollbar-width:thin;
     scrollbar-color:var(--line) transparent;
   }
   .log::-webkit-scrollbar{
-    width:5px;
+    width:4px;
   }
   .log::-webkit-scrollbar-track{
     background:transparent;
   }
   .log::-webkit-scrollbar-thumb{
     background:var(--line);
-    border-radius:3px;
+    border-radius:4px;
   }
   .log li{
     font-size:11px;
@@ -440,6 +445,7 @@
     color:var(--gold);
     font-weight:700;
     padding-right:2px;
+    white-space:nowrap;
   }
   .log-empty{font-size:11px;color:var(--text-dim);font-style:italic;}
 
@@ -453,7 +459,7 @@
   .chat-messages{
     list-style:none;
     margin:0 0 8px 0;
-    padding:0 6px 0 0;
+    padding:0 8px 0 0;
     flex:1;
     overflow-y:auto;
     font-size:11.5px;
@@ -464,11 +470,11 @@
     scrollbar-color:var(--line) transparent;
   }
   .chat-messages::-webkit-scrollbar{
-    width:5px;
+    width:4px;
   }
   .chat-messages::-webkit-scrollbar-thumb{
     background:var(--line);
-    border-radius:3px;
+    border-radius:4px;
   }
   .chat-messages li{
     word-break:break-word;
@@ -856,6 +862,9 @@ let gameOver = false;
 let currentTile = null;
 let placingLocked = false;
 let historyStack = [];
+
+// Future tile queue ensures chained undos/redos receive the exact same letters
+let futureTilesQueue = [];
 
 const boardEl = document.getElementById('board');
 const logList = document.getElementById('logList');
@@ -1532,11 +1541,20 @@ function saveStateForUndo(unlockedNames = []){
 
 function undoLastMove(){
   if(historyStack.length === 0 || placingLocked || gameOver || (inMultiplayerMode && lobbyPlayers.length > 1)) return;
+  
   const prev = historyStack.pop();
   board = prev.board;
   score = prev.score;
   cleared = prev.cleared;
-  currentTile = prev.currentTile; // Guaranteed original tile restored across chained undos
+
+  // Preserve upcoming tile sequence deterministically across multiple chained undos:
+  // Push the tile that was just undone back into the front of the future queue
+  if(currentTile !== null){
+    futureTilesQueue.unshift(currentTile);
+  }
+  
+  // Re-seat the exact tile that was active before this move was placed
+  currentTile = prev.currentTile;
   logList.innerHTML = prev.logHTML;
 
   // Only remove characters cleared on this specific reverted placement
@@ -1560,6 +1578,7 @@ function newGame(){
   gameOver = false;
   placingLocked = false;
   historyStack = [];
+  futureTilesQueue = [];
   completedNames.clear();
   currentTurnIndex = 0;
   document.getElementById('goOverlay').classList.remove('show');
@@ -1588,7 +1607,12 @@ function newGame(){
 }
 
 function drawNextTile(){
-  currentTile = weightedLetter();
+  // If we have preserved tiles from earlier undos, draw the exact letter from the queue
+  if(futureTilesQueue.length > 0){
+    currentTile = futureTilesQueue.shift();
+  } else {
+    currentTile = weightedLetter();
+  }
   renderCurrentTile();
 }
 
