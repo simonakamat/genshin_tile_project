@@ -400,15 +400,28 @@
   .stat-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .stat-row span.val{color:var(--text);font-weight:600;}
 
+  /* Activity Log Panel with Clean Scrollbar */
   .log-panel{
     flex-shrink:0;
   }
   .log{
     list-style:none;
     margin:0;
-    padding:0;
+    padding:0 8px 0 0;
     max-height:150px;
     overflow-y:auto;
+    scrollbar-width:thin;
+    scrollbar-color:var(--line) transparent;
+  }
+  .log::-webkit-scrollbar{
+    width:5px;
+  }
+  .log::-webkit-scrollbar-track{
+    background:transparent;
+  }
+  .log::-webkit-scrollbar-thumb{
+    background:var(--line);
+    border-radius:3px;
   }
   .log li{
     font-size:11px;
@@ -422,7 +435,12 @@
   .log li:last-child{border-bottom:none;}
   .log .dot{width:6px;height:6px;border-radius:50%;flex:none;}
   .log .name{color:var(--text);font-weight:600;}
-  .log .pts{margin-left:auto;color:var(--gold);font-weight:700;}
+  .log .pts{
+    margin-left:auto;
+    color:var(--gold);
+    font-weight:700;
+    padding-right:2px;
+  }
   .log-empty{font-size:11px;color:var(--text-dim);font-style:italic;}
 
   .chat-panel{
@@ -435,13 +453,22 @@
   .chat-messages{
     list-style:none;
     margin:0 0 8px 0;
-    padding:0;
+    padding:0 6px 0 0;
     flex:1;
     overflow-y:auto;
     font-size:11.5px;
     display:flex;
     flex-direction:column;
     gap:5px;
+    scrollbar-width:thin;
+    scrollbar-color:var(--line) transparent;
+  }
+  .chat-messages::-webkit-scrollbar{
+    width:5px;
+  }
+  .chat-messages::-webkit-scrollbar-thumb{
+    background:var(--line);
+    border-radius:3px;
   }
   .chat-messages li{
     word-break:break-word;
@@ -772,7 +799,7 @@ function renderInlineRoster(){
     div.innerHTML = `<h4><span class="elem-dot" style="background:${ELEMENT_COLOR[el]}"></span>${ELEMENT_LABEL[el]}</h4>
       <div class="chip-row">${names.map(n => {
         const isCleared = completedNames.has(n);
-        return `<span class="chip ${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
+        return `<span class="chip \${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
       }).join('')}</div>`;
     container.appendChild(div);
   });
@@ -827,7 +854,6 @@ let board = [];
 let score = 0, cleared = 0;
 let gameOver = false;
 let currentTile = null;
-let pendingNextTile = null;
 let placingLocked = false;
 let historyStack = [];
 
@@ -1497,7 +1523,6 @@ function saveStateForUndo(unlockedNames = []){
     score,
     cleared,
     currentTile,
-    nextTile: null,
     logHTML: logList.innerHTML,
     unlockedOnThisMove: [...unlockedNames]
   });
@@ -1511,11 +1536,10 @@ function undoLastMove(){
   board = prev.board;
   score = prev.score;
   cleared = prev.cleared;
-  currentTile = prev.currentTile;
-  pendingNextTile = prev.nextTile;
+  currentTile = prev.currentTile; // Guaranteed original tile restored across chained undos
   logList.innerHTML = prev.logHTML;
 
-  // ONLY unhighlight character names that were actually completed on THIS specific undone tile!
+  // Only remove characters cleared on this specific reverted placement
   if(prev.unlockedOnThisMove && prev.unlockedOnThisMove.length > 0){
     prev.unlockedOnThisMove.forEach(name => completedNames.delete(name));
   }
@@ -1536,7 +1560,6 @@ function newGame(){
   gameOver = false;
   placingLocked = false;
   historyStack = [];
-  pendingNextTile = null;
   completedNames.clear();
   currentTurnIndex = 0;
   document.getElementById('goOverlay').classList.remove('show');
@@ -1651,17 +1674,7 @@ function afterPlacement(){
     return;
   }
   
-  if(pendingNextTile !== null){
-    currentTile = pendingNextTile;
-    pendingNextTile = null;
-    renderCurrentTile();
-  } else {
-    drawNextTile();
-  }
-
-  if(historyStack.length > 0){
-    historyStack[historyStack.length - 1].nextTile = currentTile;
-  }
+  drawNextTile();
 
   if(inMultiplayerMode && lobbyPlayers.length > 1 && isHost){
     currentTurnIndex = (currentTurnIndex + 1) % lobbyPlayers.length;
@@ -1734,7 +1747,6 @@ function processMatches(callback){
     return; 
   }
 
-  // Find newly completed names on this move
   const newlyClearedThisMove = [];
   allMatches.forEach(m => {
     const info = WORD_INFO[m.word];
@@ -1743,7 +1755,6 @@ function processMatches(callback){
     }
   });
 
-  // Track them on the last move's snapshot so undoing ONLY this tile reverts them
   if(historyStack.length > 0){
     historyStack[historyStack.length - 1].unlockedOnThisMove = newlyClearedThisMove;
   }
