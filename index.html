@@ -800,7 +800,7 @@ function renderInlineRoster(){
     div.innerHTML = `<h4><span class="elem-dot" style="background:${ELEMENT_COLOR[el]}"></span>${ELEMENT_LABEL[el]}</h4>
       <div class="chip-row">${names.map(n => {
         const isCleared = completedNames.has(n);
-        return `<span class="chip \${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
+        return `<span class="chip ${isCleared ? 'cleared' : ''}" data-name="${n}">${n}</span>`;
       }).join('')}</div>`;
     container.appendChild(div);
   });
@@ -1528,7 +1528,8 @@ function saveStateForUndo(){
     cleared,
     currentTile,
     logHTML: logList.innerHTML,
-    completedNames: new Set(completedNames)
+    // Explicit array of character names that THIS specific turn formed and cleared
+    wordsUnlockedOnThisTurn: []
   });
   if(historyStack.length > 25) historyStack.shift();
   updateUndoButtons();
@@ -1550,8 +1551,11 @@ function undoLastMove(){
   currentTile = prev.currentTile;
   logList.innerHTML = prev.logHTML;
 
-  // Restores the exact set of completed names that were active before this move was played
-  completedNames = new Set(prev.completedNames);
+  // ONLY remove characters that were formed and completed by THIS undone placement.
+  // Unrelated moves have wordsUnlockedOnThisTurn = [], so previously cleared names NEVER unhighlight!
+  if(prev.wordsUnlockedOnThisTurn && prev.wordsUnlockedOnThisTurn.length > 0){
+    prev.wordsUnlockedOnThisTurn.forEach(name => completedNames.delete(name));
+  }
   
   updateStats();
   renderBoard();
@@ -1761,6 +1765,20 @@ function processMatches(callback){
     return; 
   }
 
+  // Detect which characters were newly cleared by this move
+  const newlyClearedThisMove = [];
+  allMatches.forEach(m => {
+    const info = WORD_INFO[m.word];
+    if(info && info.display && !completedNames.has(info.display)){
+      newlyClearedThisMove.push(info.display);
+    }
+  });
+
+  // Stamp this specific move's undo history with ONLY the characters it cleared
+  if(historyStack.length > 0){
+    historyStack[historyStack.length - 1].wordsUnlockedOnThisTurn = newlyClearedThisMove;
+  }
+
   const cellKeys = new Set();
   allMatches.forEach(m => {
     if(m.dir === 'row'){
@@ -1801,11 +1819,6 @@ function processMatches(callback){
   }
 
   playMatchAnimation(Array.from(cellKeys), allMatches, gained, hasCross);
-
-  // Synchronize the current snapshot's completedNames to include this newly cleared word
-  if(historyStack.length > 0){
-    historyStack[historyStack.length - 1].completedNames = new Set(completedNames);
-  }
 
   setTimeout(() => {
     cellKeys.forEach(key => {
