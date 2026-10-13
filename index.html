@@ -69,8 +69,18 @@
   button.btn.active{border-color:var(--gold);color:var(--gold);}
   button.btn.google-btn{width:100%;background:#fff;color:#1f1f1f;border:1px solid #dadce0;padding:9px;font-size:12.5px;}
   button.btn.google-btn:hover{background:#f1f3f4;}
-  button.btn.undo-btn{display:inline-flex;align-items:center;gap:6px;}
-  button.btn.undo-btn .undo-icon{font-size:14px;line-height:1;}
+
+  /* Undo Tile: gold outline, same lettering as "Current Tile:" */
+  button.btn.undo-btn{
+    display:inline-flex;align-items:center;gap:7px;
+    font-family:'Cinzel',serif;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--gold);background:transparent;border:1px solid var(--gold-dim);
+    padding:7px 14px;border-radius:6px;white-space:nowrap;
+  }
+  button.btn.undo-btn svg{width:13px;height:13px;flex:none;}
+  button.btn.undo-btn:hover:not(:disabled){background:rgba(230,196,122,.08);border-color:var(--gold);}
+  button.btn.undo-btn:disabled,
+  button.btn.undo-btn:disabled:hover{color:var(--text-dim);border-color:var(--line);background:transparent;opacity:.5;}
 
   .room-badge{
     display:none;align-items:center;gap:6px;font-family:'Cinzel',serif;font-weight:700;font-size:11.5px;
@@ -125,19 +135,24 @@
   .vote-btns{display:flex;gap:6px;flex:none;}
   .vote-note{font-size:11px;color:var(--text-dim);font-style:italic;}
 
+  /* Three columns with equal sides, so the tile is always exactly centered */
   .top-tile-bar{
-    display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);
-    border-radius:8px;padding:4px 16px;margin-bottom:6px;box-shadow:0 3px 12px rgba(0,0,0,0.3);flex-shrink:0;
+    display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;
+    width:100%;max-width:620px;
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:8px;padding:8px 16px;margin-bottom:6px;box-shadow:0 3px 12px rgba(0,0,0,0.3);flex-shrink:0;
   }
-  .top-tile-bar .lbl{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;}
+  .top-tile-bar .lbl{
+    justify-self:end;
+    font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;
+  }
   .current-tile{
     width:42px;height:42px;display:flex;align-items:center;justify-content:center;
     font-family:'Cinzel',serif;font-weight:700;font-size:24px;
     background:linear-gradient(180deg,#2c3860,#1a2340);border:1.5px solid var(--gold);
     border-radius:6px;color:var(--gold);box-shadow:0 0 16px rgba(230,196,122,.35);
   }
-  /* One slot that shows either the hint text or the Undo Tile button, centered */
-  .tile-action{min-width:230px;display:flex;justify-content:center;align-items:center;}
+  .tile-action{justify-self:start;display:flex;align-items:center;min-height:34px;}
   .top-tile-bar .hint{font-size:11px;color:var(--text-dim);}
 
   #board{
@@ -308,7 +323,10 @@
         <div class="tile-action">
           <span class="hint" id="placementHint">Click any empty cell on the board</span>
           <button class="btn undo-btn" id="btnUndo" disabled style="display:none;" title="Take back your last tile (one step only)">
-            <span class="undo-icon">↶</span>Undo Tile
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>
+            </svg>
+            Undo Tile
           </button>
         </div>
       </div>
@@ -586,9 +604,6 @@ const Sound = {
     const t = ctx.currentTime + 0.01;
     const arp = (notes, gap, dur, vol=0.16) => notes.forEach((f,i) => this.tone(f, t + i*gap, dur, {vol}));
     switch(name){
-      case 'clear':    arp([523.25,659.25,783.99,1046.5], 0.07, 0.25); break;
-      case 'combo':    arp([587.33,739.99,880,1174.66,1479.98], 0.05, 0.28); break;
-      case 'cross':    this.tone(1567.98, t + 0.3, 0.6, {type:'sine', vol:0.12}); break;
       case 'join':     this.tone(659.25, t, 0.18, {vol:0.18}); this.tone(987.77, t + 0.12, 0.35, {vol:0.18}); break;
       case 'leave':    this.tone(659.25, t, 0.18, {vol:0.15}); this.tone(440, t + 0.12, 0.35, {vol:0.15}); break;
       case 'chat':     this.tone(1046.5, t, 0.08, {type:'sine', vol:0.1}); break;
@@ -929,25 +944,39 @@ function renderInlineRoster(){
     </div>`).join('');
 }
 
+// Build the 225 cells once, then only update the cells that change (no flicker).
 function renderBoard(){
-  const frag = document.createDocumentFragment();
+  if(boardEl.children.length !== ROWS * COLS){
+    const frag = document.createDocumentFragment();
+    for(let r = 0; r < ROWS; r++){
+      for(let c = 0; c < COLS; c++){
+        const div = document.createElement('div');
+        div.dataset.r = r; div.dataset.c = c;
+        div.tabIndex = 0;
+        frag.appendChild(div);
+      }
+    }
+    boardEl.innerHTML = '';
+    boardEl.appendChild(frag);
+  }
   for(let r = 0; r < ROWS; r++){
     for(let c = 0; c < COLS; c++){
-      const div = document.createElement('div');
-      const letter = board[r][c];
-      div.className = 'tile' + (letter ? '' : ' empty');
-      div.textContent = letter || '';
-      div.dataset.r = r; div.dataset.c = c;
-      div.tabIndex = 0;
-      frag.appendChild(div);
+      const div = boardEl.children[r * COLS + c];
+      const letter = board[r][c] || '';
+      const cls = 'tile' + (letter ? '' : ' empty');
+      if(div.className !== cls) div.className = cls;
+      if(div.textContent !== letter) div.textContent = letter;
     }
   }
-  boardEl.innerHTML = '';
-  boardEl.appendChild(frag);
   renderGhostHovers();
 }
 
-function renderCurrentTile(){ $('currentTileEl').textContent = gameOver ? '—' : (currentTile || ''); }
+// Keep showing the old letter until the next one is ready (no blank flash).
+function renderCurrentTile(){
+  const el = $('currentTileEl');
+  if(gameOver) el.textContent = '—';
+  else if(currentTile) el.textContent = currentTile;
+}
 function updateStats(){ $('scoreVal').textContent = score; $('statCleared').textContent = cleared; }
 
 function renderLog(){
@@ -1006,11 +1035,12 @@ function renderLobbyRoster(){
 
 // Solo: show the hint until the first tile, then show Undo Tile in the same spot.
 // Multiplayer: always show the hint (it tells you whose turn it is).
+// The button does NOT gray out while a move is being checked; undoLastMove() blocks clicks then.
 function updateUndoButton(){
   const showUndo = !inMultiplayerMode && hasPlacedTile;
   btnUndo.style.display = showUndo ? '' : 'none';
   placementHint.style.display = showUndo ? 'none' : '';
-  btnUndo.disabled = !(undoSnapshot && !placingLocked && !gameOver && !inMultiplayerMode);
+  btnUndo.disabled = !(undoSnapshot && !gameOver && !inMultiplayerMode);
 }
 
 function updateMultiplayerUI(){
@@ -1108,7 +1138,7 @@ function executeTilePlacement(r, c, byId){
   board[r][c] = currentTile;
   currentTile = null;
   placingLocked = true;
-  renderBoard(); renderCurrentTile(); updateUndoButton();
+  renderBoard(); updateUndoButton();
   if(inMultiplayerMode) pushState();
   setTimeout(() => processMatches(byId, afterPlacement), 60);
 }
@@ -1216,7 +1246,7 @@ function addLogEntries(matches, hasCross, byName){
   if(activityLog.length > 50) activityLog.length = 50;
 }
 
-// Visual + sound only. Runs on every screen. Does not change game state.
+// Visual only. Runs on every screen. Does not change game state.
 function playMatchFx({ cellKeys, matches, hasCross }){
   cellKeys.forEach(key => {
     const [r, c] = key.split(',').map(Number);
@@ -1230,7 +1260,7 @@ function playMatchFx({ cellKeys, matches, hasCross }){
     const d = WORD_INFO[m.word] && WORD_INFO[m.word].display;
     document.querySelectorAll('.chip').forEach(ch => { if(ch.dataset.name === d) ch.classList.add('cleared'); });
   });
-   showFloatMessage(matches.length, hasCross);
+  showFloatMessage(matches.length, hasCross);
 }
 
 /* ================= Undo Tile (solo only, one step) ================= */
