@@ -69,6 +69,11 @@
   button.btn.active{border-color:var(--gold);color:var(--gold);}
   button.btn.google-btn{width:100%;background:#fff;color:#1f1f1f;border:1px solid #dadce0;padding:9px;font-size:12.5px;}
   button.btn.google-btn:hover{background:#f1f3f4;}
+  /* Undo Tile: blue when ready, gray after one use */
+  button.btn.undo-btn{background:#12283a;border-color:var(--hydro);color:var(--hydro);}
+  button.btn.undo-btn:hover:not(:disabled){background:#1a3a52;border-color:#8fdcff;color:#8fdcff;}
+  button.btn.undo-btn:disabled,
+  button.btn.undo-btn:disabled:hover{background:var(--panel-2);border-color:var(--line);color:var(--text-dim);opacity:.5;}
 
   .room-badge{
     display:none;align-items:center;gap:6px;font-family:'Cinzel',serif;font-weight:700;font-size:11.5px;
@@ -301,8 +306,8 @@
       <div class="top-tile-bar">
         <span class="lbl">Current Tile:</span>
         <div id="currentTileEl" class="current-tile"></div>
-        <button class="btn" id="btnUndo" disabled title="Take back your last tile (one step only)">Undo Tile</button>
         <span class="hint" id="placementHint">Click any empty cell on the board</span>
+        <button class="btn undo-btn" id="btnUndo" disabled title="Take back your last tile (one step only)">Undo Tile</button>
       </div>
       <div id="board"></div>
     </div>
@@ -578,7 +583,6 @@ const Sound = {
     const t = ctx.currentTime + 0.01;
     const arp = (notes, gap, dur, vol=0.16) => notes.forEach((f,i) => this.tone(f, t + i*gap, dur, {vol}));
     switch(name){
-      case 'place':    this.tone(660, t, 0.09, {glide:440, vol:0.18}); break;
       case 'clear':    arp([523.25,659.25,783.99,1046.5], 0.07, 0.25); break;
       case 'combo':    arp([587.33,739.99,880,1174.66,1479.98], 0.05, 0.28); break;
       case 'cross':    this.tone(1567.98, t + 0.3, 0.6, {type:'sine', vol:0.12}); break;
@@ -1096,8 +1100,7 @@ function executeTilePlacement(r, c, byId){
   currentTile = null;
   placingLocked = true;
   renderBoard(); renderCurrentTile(); updateUndoButton();
-  Sound.play('place');
-  if(inMultiplayerMode){ broadcast({ type:'SFX', name:'place' }); pushState(); }
+  if(inMultiplayerMode) pushState();
   setTimeout(() => processMatches(byId, afterPlacement), 60);
 }
 
