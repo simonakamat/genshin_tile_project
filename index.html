@@ -124,7 +124,7 @@
   .vote-note{font-size:11px;color:var(--text-dim);font-style:italic;}
 
   .top-tile-bar{
-    display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);
     border-radius:8px;padding:4px 16px;margin-bottom:6px;box-shadow:0 3px 12px rgba(0,0,0,0.3);flex-shrink:0;
   }
   .top-tile-bar .lbl{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;}
@@ -269,7 +269,6 @@
     <div class="headerbtns">
       <!-- This board -->
       <div class="btn-group">
-        <button class="btn" id="btnUndo" disabled>Undo</button>
         <button class="btn primary" id="btnNew">New Game</button>
       </div>
       <!-- Other players -->
@@ -278,12 +277,11 @@
           <span>ROOM: <strong id="headerRoomCode">----</strong></span>
           <span class="copy-hint">(Copy)</span>
         </span>
-        <button class="btn" id="btnModeToggle">Play Together</button>
+        <button class="btn" id="btnModeToggle">Create/Join Lobby</button>
         <button class="btn" id="btnLeaderboard">Leaderboard</button>
       </div>
       <!-- You -->
       <div class="btn-group">
-        <button class="btn" id="btnSfx">Sound: On</button>
         <button class="btn" id="btnAccount">Sign In</button>
       </div>
     </div>
@@ -303,6 +301,7 @@
       <div class="top-tile-bar">
         <span class="lbl">Current Tile:</span>
         <div id="currentTileEl" class="current-tile"></div>
+        <button class="btn" id="btnUndo" disabled title="Take back your last tile (one step only)">Undo Tile</button>
         <span class="hint" id="placementHint">Click any empty cell on the board</span>
       </div>
       <div id="board"></div>
@@ -313,7 +312,6 @@
         <div class="score-big" id="scoreVal">0</div>
         <div class="score-label">Score</div>
         <div class="stat-row"><span>Names cleared</span><span class="val" id="statCleared">0</span></div>
-        <div class="stat-row"><span>Tile Distribution</span><span class="val" style="color:var(--gold);">Weighted</span></div>
       </div>
 
       <div class="panel party-panel" id="partyPanel">
@@ -549,7 +547,6 @@ const Store = {
 /* ================= Sound effects (Web Audio, no files needed) ================= */
 const Sound = {
   ctx:null, master:null,
-  sfxOn: Store.get('tt_sfx', true),
 
   ensure(){
     if(!this.ctx){
@@ -577,7 +574,6 @@ const Sound = {
   },
 
   play(name){
-    if(!this.sfxOn) return;
     const ctx = this.ensure(); if(!ctx) return;
     const t = ctx.currentTime + 0.01;
     const arp = (notes, gap, dur, vol=0.16) => notes.forEach((f,i) => this.tone(f, t + i*gap, dur, {vol}));
@@ -594,15 +590,8 @@ const Sound = {
       case 'error':    this.tone(180, t, 0.15, {type:'square', vol:0.06}); break;
       case 'gameover': arp([783.99,659.25,523.25,392], 0.16, 0.4, 0.18); break;
     }
-  },
-
-  toggleSfx(){ this.sfxOn = !this.sfxOn; Store.set('tt_sfx', this.sfxOn); updateSoundButtons(); if(this.sfxOn) this.play('place'); }
+  }
 };
-
-function updateSoundButtons(){
-  $('btnSfx').textContent = `Sound: ${Sound.sfxOn ? 'On' : 'Off'}`;
-  $('btnSfx').classList.toggle('active', Sound.sfxOn);
-}
 
 // Browsers block audio until the first click or key press.
 let audioUnlocked = false;
@@ -885,7 +874,8 @@ function openLeaderboard(tab){ if(tab) lbTab = tab; renderLeaderboard(); $('lbOv
 /* ================= Game state ================= */
 const ROWS = 15, COLS = 15;
 let board = [], score = 0, cleared = 0, gameOver = false, currentTile = null, placingLocked = false;
-let historyStack = [], futureTilesQueue = [], completedNames = new Set(), activityLog = [], playerPoints = {};
+let undoSnapshot = null;           // holds only the state before the LAST tile (one-step undo)
+let futureTilesQueue = [], completedNames = new Set(), activityLog = [], playerPoints = {};
 let moveOrder = [];
 
 /* ================= Multiplayer state ================= */
@@ -1008,7 +998,7 @@ function renderLobbyRoster(){
 
 function updateUndoButton(){
   btnUndo.style.display = inMultiplayerMode ? 'none' : '';
-  btnUndo.disabled = !(historyStack.length && !placingLocked && !gameOver && !inMultiplayerMode);
+  btnUndo.disabled = !(undoSnapshot && !placingLocked && !gameOver && !inMultiplayerMode);
 }
 
 function updateMultiplayerUI(){
@@ -1069,7 +1059,7 @@ function hasEmptyCell(){ return board.some(row => row.some(v => v === null)); }
 
 function resetRoundState(){
   gameOver = false; placingLocked = false;
-  historyStack = []; futureTilesQueue = [];
+  undoSnapshot = null; futureTilesQueue = [];
   completedNames = new Set(); activityLog = []; playerPoints = {};
   board = emptyBoard(); score = 0; cleared = 0; roundRecorded = false;
   currentTile = drawLetter();
@@ -1233,24 +1223,24 @@ function playMatchFx({ cellKeys, matches, hasCross }){
   if(hasCross) Sound.play('cross');
 }
 
-/* ================= Undo (solo only) ================= */
+/* ================= Undo Tile (solo only, one step) ================= */
 function saveStateForUndo(){
   if(inMultiplayerMode) return;
-  historyStack.push({
+  undoSnapshot = {
     board: board.map(row => [...row]), score, cleared, currentTile,
     log: activityLog.slice(), completed: [...completedNames]
-  });
-  if(historyStack.length > 25) historyStack.shift();
+  };
 }
 
 function undoLastMove(){
-  if(inMultiplayerMode || !historyStack.length || placingLocked || gameOver) return;
-  const prev = historyStack.pop();
-  if(currentTile !== null) futureTilesQueue.unshift(currentTile); // same letters come back after undo
+  if(inMultiplayerMode || !undoSnapshot || placingLocked || gameOver) return;
+  const prev = undoSnapshot;
+  undoSnapshot = null;            // only one step back
+  if(currentTile !== null) futureTilesQueue.unshift(currentTile); // the same next letter comes back
   board = prev.board; score = prev.score; cleared = prev.cleared; currentTile = prev.currentTile;
   activityLog = prev.log; completedNames = new Set(prev.completed);
   renderAll();
-  notify('UNDONE');
+  notify('TILE UNDONE');
 }
 
 /* ================= Game over ================= */
@@ -1357,7 +1347,7 @@ function enterRoomUI(){
 }
 
 function exitRoomUI(){
-  btnModeToggle.textContent = 'Play Together';
+  btnModeToggle.textContent = 'Create/Join Lobby';
   btnModeToggle.classList.remove('leave-btn');
   roomCodeBadge.style.display = 'none';
   lobbySetupView.style.display = 'block';
@@ -1874,9 +1864,8 @@ window.addEventListener('keydown', e => {
 
 /* ================= Start ================= */
 initCloud();
-// Clear old local-password sessions from the previous version, or Google sessions when Firebase is off.
+// Clear old local-password sessions from earlier versions, or Google sessions when Firebase is off.
 if(Auth.current && !Auth.current.guest && (!Cloud.ready || !Auth.current.uid)) Auth.clear();
-updateSoundButtons();
 renderAccountButton();
 resetRoundState();
 renderAll();
