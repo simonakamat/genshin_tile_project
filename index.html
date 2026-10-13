@@ -7,6 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<!-- Firebase: Google sign-in + global leaderboard -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --bg:#0a0e1a; --bg-2:#0d1220; --panel:#131a2c; --panel-2:#1a2338; --line:#2a3350;
@@ -40,7 +44,10 @@
     color:var(--gold-dim);margin-left:6px;vertical-align:middle;
   }
 
-  .headerbtns{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .headerbtns{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .btn-group{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .btn-group + .btn-group{padding-left:10px;border-left:1px solid var(--line);}
+
   button.btn{
     font-family:'Inter',sans-serif;font-weight:600;font-size:11.5px;
     background:var(--panel-2);color:var(--text);border:1px solid var(--line);
@@ -60,6 +67,8 @@
   }
   button.btn.kick-btn:hover{background:#441a1d;border-color:#ff6b6b;}
   button.btn.active{border-color:var(--gold);color:var(--gold);}
+  button.btn.google-btn{width:100%;background:#fff;color:#1f1f1f;border:1px solid #dadce0;padding:9px;font-size:12.5px;}
+  button.btn.google-btn:hover{background:#f1f3f4;}
 
   .room-badge{
     display:none;align-items:center;gap:6px;font-family:'Cinzel',serif;font-weight:700;font-size:11.5px;
@@ -218,14 +227,17 @@
   .modal h2{font-family:'Cinzel',serif;color:var(--gold);margin:0 0 4px;font-size:18px;}
   .modal h3{font-family:'Cinzel',serif;color:var(--gold);font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:12px 0 4px;}
   .modal p.sub{color:var(--text-dim);font-size:12px;margin:0 0 12px;}
+  .modal p.small{font-size:10.5px;margin:10px 0 0;}
   .modal .close-row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap;}
+  .divider{display:flex;align-items:center;gap:8px;color:var(--text-dim);font-size:11px;margin:14px 0;}
+  .divider::before,.divider::after{content:"";flex:1;border-top:1px solid var(--line);}
 
   .field{margin-bottom:10px;}
   .field label{font-size:11px;text-transform:uppercase;color:var(--gold);letter-spacing:.05em;display:block;margin-bottom:4px;}
   .field input{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:7px 10px;border-radius:6px;font-size:12px;}
   .field input:focus{outline:none;border-color:var(--gold-dim);}
   .field input[readonly]{opacity:.7;}
-  .form-error{color:#ff8b8b;font-size:11.5px;min-height:16px;margin:2px 0 6px;}
+  .form-error{color:#ff8b8b;font-size:11.5px;min-height:16px;margin:6px 0;}
 
   #rosterList li{
     display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--panel-2);
@@ -234,7 +246,8 @@
   #rosterList li.is-you{border-color:var(--gold-dim);background:#1e2842;}
   .player-order-pill{font-family:'Cinzel',serif;font-weight:700;font-size:11px;color:var(--gold);background:var(--bg-2);padding:2px 7px;border-radius:4px;margin-right:8px;}
 
-  .tabs{display:flex;gap:6px;margin-bottom:10px;}
+  .tabs-row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+  .tabs{display:flex;gap:6px;}
   .lb-table{width:100%;border-collapse:collapse;font-size:12px;}
   .lb-table th{text-align:left;color:var(--gold-dim);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:4px;border-bottom:1px solid var(--line);}
   .lb-table td{padding:5px 4px;border-bottom:1px dashed var(--line);vertical-align:top;}
@@ -254,17 +267,25 @@
       <div class="eyebrow">15×15 Board</div>
     </div>
     <div class="headerbtns">
-      <span class="room-badge" id="roomCodeBadge" title="Click to copy room code">
-        <span>ROOM: <strong id="headerRoomCode">----</strong></span>
-        <span class="copy-hint">(Copy)</span>
-      </span>
-      <button class="btn" id="btnAccount">Sign In</button>
-      <button class="btn" id="btnLeaderboard">Leaderboard</button>
-      <button class="btn" id="btnSfx">Sound: On</button>
-      <button class="btn" id="btnMusic">Music: Off</button>
-      <button class="btn" id="btnModeToggle">Create/Join Lobby</button>
-      <button class="btn" id="btnUndo" disabled>Undo Placement</button>
-      <button class="btn primary" id="btnNew">New Game</button>
+      <!-- This board -->
+      <div class="btn-group">
+        <button class="btn" id="btnUndo" disabled>Undo</button>
+        <button class="btn primary" id="btnNew">New Game</button>
+      </div>
+      <!-- Other players -->
+      <div class="btn-group">
+        <span class="room-badge" id="roomCodeBadge" title="Click to copy room code">
+          <span>ROOM: <strong id="headerRoomCode">----</strong></span>
+          <span class="copy-hint">(Copy)</span>
+        </span>
+        <button class="btn" id="btnModeToggle">Play Together</button>
+        <button class="btn" id="btnLeaderboard">Leaderboard</button>
+      </div>
+      <!-- You -->
+      <div class="btn-group">
+        <button class="btn" id="btnSfx">Sound: On</button>
+        <button class="btn" id="btnAccount">Sign In</button>
+      </div>
     </div>
   </header>
 
@@ -309,7 +330,7 @@
         <h3>Team Chat</h3>
         <ul class="chat-messages" id="chatList"></ul>
         <div class="chat-input-row">
-          <textarea id="chatInput" rows="1" placeholder="Type a message... (Shift+Enter for new line)"></textarea>
+          <textarea id="chatInput" rows="1" placeholder="Type a message..."></textarea>
           <button class="btn primary" id="btnSendChat" style="padding:6px 10px;">Send</button>
         </div>
       </div>
@@ -374,7 +395,7 @@
     <div class="go-stats">
       <div><span>Final score</span><span id="goScore">0</span></div>
       <div><span>Names cleared</span><span id="goCleared">0</span></div>
-      <div><span>Your best (this mode)</span><span id="goBest">0</span></div>
+      <div><span>Your best on this device</span><span id="goBest">0</span></div>
     </div>
     <div id="goTeam"></div>
     <p class="sub" id="goSaved" style="margin-top:8px;"></p>
@@ -391,9 +412,15 @@
   <div class="modal" style="max-width:560px;">
     <h2>Leaderboard</h2>
     <p class="sub" id="lbBest"></p>
-    <div class="tabs">
-      <button class="btn active" data-lbtab="solo">Solo</button>
-      <button class="btn" data-lbtab="coop">Co-op</button>
+    <div class="tabs-row">
+      <div class="tabs">
+        <button class="btn" data-lbscope="local">This Device</button>
+        <button class="btn" data-lbscope="global">Global</button>
+      </div>
+      <div class="tabs">
+        <button class="btn" data-lbtab="solo">Solo</button>
+        <button class="btn" data-lbtab="coop">Co-op</button>
+      </div>
     </div>
     <div id="lbBody"></div>
     <div class="close-row">
@@ -406,23 +433,33 @@
 <!-- Account -->
 <div class="overlay" id="authOverlay">
   <div class="modal" style="max-width:400px;">
-    <h2>Welcome, Traveler</h2>
-    <p class="sub" id="authSub">Sign in to keep your scores under your name.</p>
-    <div id="authFormView">
-      <div class="field"><label>Name</label><input id="authName" type="text" autocomplete="username"></div>
-      <div class="field"><label>Password</label><input id="authPass" type="password" autocomplete="current-password"></div>
+    <h2 id="authTitle">Welcome, Traveler</h2>
+    <p class="sub" id="authSub"></p>
+
+    <div id="authSignedOutView">
+      <button class="btn google-btn" id="btnGoogle">Sign in with Google</button>
+      <div class="divider">or</div>
+      <div class="field"><label>Guest Name</label><input id="guestName" type="text" placeholder="e.g. Lumine"></div>
+      <button class="btn" id="btnGuest" style="width:100%;">Play as Guest</button>
       <div class="form-error" id="authError"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="btn primary" id="btnSignIn">Sign In</button>
-        <button class="btn" id="btnSignUp">Create Account</button>
-      </div>
-      <button class="btn" id="btnGuest" style="width:100%;margin-top:8px;">Play as Guest (uses the name above)</button>
-      <p class="sub" style="margin:10px 0 0;font-size:10.5px;">Accounts are saved in this browser only. They do not sync between devices yet.</p>
+      <p class="sub small">Signing in with Google saves your name and posts your scores to the global leaderboard. Guest scores stay on this device.</p>
     </div>
-    <div id="authSignedView" style="display:none;">
-      <p style="font-size:13px;">Signed in as <strong id="authWho" style="color:var(--gold);"></strong></p>
+
+    <div id="authNameView" style="display:none;">
+      <div class="field"><label>Player Name</label><input id="profileName" type="text" placeholder="Shown to other players and on the leaderboard"></div>
+      <div class="form-error" id="nameError"></div>
+      <div class="close-row">
+        <button class="btn" id="btnNameCancel">Cancel</button>
+        <button class="btn primary" id="btnNameSave">Save Name</button>
+      </div>
+    </div>
+
+    <div id="authSignedInView" style="display:none;">
+      <p style="font-size:13px;margin:0 0 4px;">Playing as <strong id="authWho" style="color:var(--gold);"></strong></p>
+      <p class="sub" id="authEmail"></p>
       <div class="close-row">
         <button class="btn leave-btn" id="btnSignOut">Sign Out</button>
+        <button class="btn" id="btnChangeName">Change Name</button>
         <button class="btn primary" id="btnAuthClose">Close</button>
       </div>
     </div>
@@ -430,6 +467,16 @@
 </div>
 
 <script>
+/* ================= Firebase settings =================
+   Paste the values from Firebase console → Project settings → Your apps → Web app.
+   Leave apiKey empty to play without Google sign-in or the global leaderboard. */
+const FIREBASE_CONFIG = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  appId: ""
+};
+
 /* ================= Character database ================= */
 const RAW_CHARS = [
   ["Amber","pyro"],["Bennett","pyro"],["Diluc","pyro"],["Klee","pyro"],["Xiangling","pyro"],
@@ -499,11 +546,10 @@ const Store = {
   set(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
 };
 
-/* ================= Sound (Web Audio, no files needed) ================= */
+/* ================= Sound effects (Web Audio, no files needed) ================= */
 const Sound = {
-  ctx:null, master:null, musicGain:null, musicTimer:null, step:0,
+  ctx:null, master:null,
   sfxOn: Store.get('tt_sfx', true),
-  musicOn: Store.get('tt_music', false),
 
   ensure(){
     if(!this.ctx){
@@ -511,14 +557,13 @@ const Sound = {
       if(!AC) return null;
       this.ctx = new AC();
       this.master = this.ctx.createGain(); this.master.gain.value = 0.6; this.master.connect(this.ctx.destination);
-      this.musicGain = this.ctx.createGain(); this.musicGain.gain.value = 0.9; this.musicGain.connect(this.master);
     }
     if(this.ctx.state === 'suspended') this.ctx.resume().catch(()=>{});
     return this.ctx;
   },
 
   tone(freq, t0, dur, opts = {}){
-    const { type='triangle', vol=0.2, glide=null, attack=0.012, dest=null } = opts;
+    const { type='triangle', vol=0.2, glide=null, attack=0.012 } = opts;
     const ctx = this.ctx;
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type;
@@ -527,7 +572,7 @@ const Sound = {
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(vol, t0 + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(g); g.connect(dest || this.master);
+    o.connect(g); g.connect(this.master);
     o.start(t0); o.stop(t0 + dur + 0.05);
   },
 
@@ -551,93 +596,74 @@ const Sound = {
     }
   },
 
-  startMusic(){
-    const ctx = this.ensure(); if(!ctx || this.musicTimer) return;
-    this.musicGain.gain.cancelScheduledValues(ctx.currentTime);
-    this.musicGain.gain.setValueAtTime(0.9, ctx.currentTime);
-    const chords = [[110,138.59,164.81],[92.5,110,138.59],[73.42,92.5,110],[82.41,103.83,123.47]]; // A, F#m, D, E
-    const melody = [440,493.88,554.37,659.25,739.99,880];
-    const beat = 0.5;
-    let next = ctx.currentTime + 0.1;
-    this.step = 0;
-    this.musicTimer = setInterval(() => {
-      while(next < ctx.currentTime + 0.8){
-        if(this.step % 8 === 0){
-          const chord = chords[Math.floor(this.step / 8) % chords.length];
-          chord.forEach(f => this.tone(f, next, beat * 8, {type:'sine', vol:0.05, attack:1.2, dest:this.musicGain}));
-        }
-        if(Math.random() < 0.5){
-          const f = melody[Math.floor(Math.random() * melody.length)];
-          this.tone(f, next, 1.3, {type:'triangle', vol:0.035, attack:0.03, dest:this.musicGain});
-        }
-        next += beat; this.step++;
-      }
-    }, 150);
-  },
-
-  stopMusic(){
-    clearInterval(this.musicTimer); this.musicTimer = null;
-    if(this.ctx) this.musicGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.3);
-  },
-
-  toggleSfx(){ this.sfxOn = !this.sfxOn; Store.set('tt_sfx', this.sfxOn); updateSoundButtons(); if(this.sfxOn) this.play('place'); },
-  toggleMusic(){ this.musicOn = !this.musicOn; Store.set('tt_music', this.musicOn); this.musicOn ? this.startMusic() : this.stopMusic(); updateSoundButtons(); }
+  toggleSfx(){ this.sfxOn = !this.sfxOn; Store.set('tt_sfx', this.sfxOn); updateSoundButtons(); if(this.sfxOn) this.play('place'); }
 };
 
 function updateSoundButtons(){
   $('btnSfx').textContent = `Sound: ${Sound.sfxOn ? 'On' : 'Off'}`;
-  $('btnMusic').textContent = `Music: ${Sound.musicOn ? 'On' : 'Off'}`;
   $('btnSfx').classList.toggle('active', Sound.sfxOn);
-  $('btnMusic').classList.toggle('active', Sound.musicOn);
 }
 
 // Browsers block audio until the first click or key press.
 let audioUnlocked = false;
-function unlockAudio(){
-  if(audioUnlocked) return;
-  audioUnlocked = true;
-  Sound.ensure();
-  if(Sound.musicOn) Sound.startMusic();
-}
+function unlockAudio(){ if(audioUnlocked) return; audioUnlocked = true; Sound.ensure(); }
 document.addEventListener('pointerdown', unlockAudio, true);
 document.addEventListener('keydown', unlockAudio, true);
 
-/* ================= Accounts (this browser only) ================= */
-const Auth = {
-  current: Store.get('tt_session', null), // {username, display, guest}
-  users(){ return Store.get('tt_users', {}); },
-  async hash(password, salt){
-    const data = new TextEncoder().encode(salt + ':' + password);
-    if(window.crypto && crypto.subtle){
-      const buf = await crypto.subtle.digest('SHA-256', data);
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+/* ================= Cloud (Firebase) ================= */
+const Cloud = { ready:false, auth:null, db:null, user:null, profile:null };
+
+function initCloud(){
+  if(!FIREBASE_CONFIG.apiKey || typeof firebase === 'undefined') return;
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    Cloud.auth = firebase.auth();
+    Cloud.db = firebase.firestore();
+    Cloud.ready = true;
+  }catch(e){ console.warn('Firebase init failed:', e); return; }
+
+  Cloud.auth.getRedirectResult().catch(e => { console.warn(e); notify('GOOGLE SIGN-IN FAILED'); });
+
+  Cloud.auth.onAuthStateChanged(async user => {
+    Cloud.user = user;
+    Cloud.profile = null;
+    if(!user){
+      if(Auth.current && !Auth.current.guest) Auth.clear();
+      return;
     }
-    let h = 0; for(const b of data) h = (h * 31 + b) >>> 0; return 'f' + h.toString(16);
-  },
-  async signUp(name, password){
-    const display = name.trim(), key = display.toLowerCase();
-    if(!display) throw new Error('Please type a name.');
-    if(password.length < 4) throw new Error('Password needs at least 4 characters.');
-    const users = this.users();
-    if(users[key]) throw new Error('That name is taken on this device. Sign in instead.');
-    const salt = Math.random().toString(36).slice(2) + now().toString(36);
-    users[key] = { display, salt, hash: await this.hash(password, salt), created: now() };
-    Store.set('tt_users', users);
-    this.setSession({ username:key, display, guest:false });
-  },
-  async signIn(name, password){
-    const key = name.trim().toLowerCase();
-    const u = this.users()[key];
-    if(!u) throw new Error('No account with that name on this device.');
-    if(await this.hash(password, u.salt) !== u.hash) throw new Error('Wrong password.');
-    this.setSession({ username:key, display:u.display, guest:false });
-  },
-  guest(name){ this.setSession({ username:null, display:(name.trim() || 'Traveler'), guest:true }); },
-  signOut(){ this.current = null; Store.set('tt_session', null); renderAccountButton(); },
+    try{
+      const snap = await Cloud.db.collection('users').doc(user.uid).get();
+      const data = snap.exists ? snap.data() : null;
+      if(data && data.displayName){
+        Cloud.profile = data;
+        const already = Auth.current && Auth.current.uid === user.uid;
+        Auth.setSession({ uid:user.uid, display:data.displayName, guest:false });
+        if(!already){
+          $('authOverlay').classList.remove('show');
+          notify(`WELCOME, ${data.displayName.toUpperCase()}`);
+        }
+      } else {
+        nameViewMode = 'first';      // first Google sign-in: player picks their own name
+        openAuth('name');
+      }
+    }catch(e){
+      console.warn(e);
+      notify('COULD NOT LOAD YOUR PROFILE');
+    }
+  });
+}
+
+/* ================= Accounts ================= */
+const Auth = {
+  current: Store.get('tt_session', null), // {uid, display, guest}
+  guest(name){ this.setSession({ uid:null, display:(name.trim() || 'Traveler'), guest:true }); },
+  clear(){ this.current = null; Store.set('tt_session', null); renderAccountButton(); },
   setSession(s){ this.current = s; Store.set('tt_session', s); renderAccountButton(); },
   name(){ return this.current ? this.current.display : 'Traveler'; },
-  isSignedIn(){ return !!(this.current && !this.current.guest); }
+  isSignedIn(){ return !!(this.current && !this.current.guest && this.current.uid && Cloud.user && Cloud.user.uid === this.current.uid); }
 };
+
+let nameViewMode = null; // 'first' | 'change'
 
 function renderAccountButton(){
   const b = $('btnAccount');
@@ -646,39 +672,96 @@ function renderAccountButton(){
   b.style.maxWidth = '160px'; b.style.overflow = 'hidden'; b.style.textOverflow = 'ellipsis'; b.style.whiteSpace = 'nowrap';
 }
 
-function openAuth(){
-  $('authError').textContent = '';
-  $('authPass').value = '';
-  if(Auth.isSignedIn()){
-    $('authFormView').style.display = 'none';
-    $('authSignedView').style.display = 'block';
-    $('authWho').textContent = Auth.current.display;
-    $('authSub').textContent = 'Your scores are saved under this name.';
+function openAuth(view){
+  const v = view || (Auth.isSignedIn() ? 'in' : 'out');
+  $('authSignedOutView').style.display = v === 'out' ? 'block' : 'none';
+  $('authNameView').style.display = v === 'name' ? 'block' : 'none';
+  $('authSignedInView').style.display = v === 'in' ? 'block' : 'none';
+  $('authError').textContent = ''; $('nameError').textContent = '';
+
+  if(v === 'out'){
+    $('authTitle').textContent = 'Welcome, Traveler';
+    $('authSub').textContent = Cloud.ready
+      ? 'Sign in to keep your name and post global scores.'
+      : 'Google sign-in is not set up yet, so you can play as a guest.';
+    $('btnGoogle').disabled = !Cloud.ready;
+    $('guestName').value = (Auth.current && Auth.current.guest) ? Auth.current.display : '';
+  } else if(v === 'name'){
+    $('authTitle').textContent = 'Choose Your Name';
+    $('authSub').textContent = 'Other players and the leaderboard will see this name. It does not need to match your Google name.';
+    $('profileName').value = (Auth.current && Auth.current.uid) ? Auth.current.display : '';
+    setTimeout(() => $('profileName').focus(), 50);
   } else {
-    $('authFormView').style.display = 'block';
-    $('authSignedView').style.display = 'none';
-    $('authName').value = Auth.current ? Auth.current.display : '';
-    $('authSub').textContent = Auth.current ? `Playing as guest "${Auth.current.display}". Sign in to keep scores under an account.` : 'Sign in to keep your scores under your name.';
+    $('authTitle').textContent = 'Your Account';
+    $('authWho').textContent = Auth.name();
+    $('authEmail').textContent = (Cloud.user && Cloud.user.email) ? `Google account: ${Cloud.user.email}` : '';
   }
   $('authOverlay').classList.add('show');
 }
 
-async function authAction(kind){
-  const name = $('authName').value, pass = $('authPass').value;
+async function signInWithGoogle(){
   $('authError').textContent = '';
+  if(!Cloud.ready){ $('authError').textContent = 'Google sign-in is not set up yet. Add your Firebase settings to FIREBASE_CONFIG in the code.'; return; }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt:'select_account' });
   try{
-    if(kind === 'in') await Auth.signIn(name, pass);
-    else if(kind === 'up') await Auth.signUp(name, pass);
-    else Auth.guest(name);
-    $('authOverlay').classList.remove('show');
-    notify(`WELCOME, ${Auth.name().toUpperCase()}`);
-  }catch(err){
-    $('authError').textContent = err.message;
+    await Cloud.auth.signInWithPopup(provider);
+  }catch(e){
+    if(e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+    if(e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-environment'){
+      try{ await Cloud.auth.signInWithRedirect(provider); return; }catch(e2){ e = e2; }
+    }
+    $('authError').textContent = e.code === 'auth/unauthorized-domain'
+      ? 'This website address is not on your Firebase "Authorized domains" list yet.'
+      : `Sign-in failed (${e.code || e.message}).`;
     Sound.play('error');
   }
 }
 
-/* ================= Leaderboard (this browser only) ================= */
+async function saveProfileName(){
+  const name = $('profileName').value.trim();
+  $('nameError').textContent = '';
+  if(!name){ $('nameError').textContent = 'Please type a name.'; return; }
+  if(!Cloud.user){ openAuth('out'); return; }
+  const btn = $('btnNameSave'); btn.disabled = true;
+  try{
+    await Cloud.db.collection('users').doc(Cloud.user.uid).set(
+      { displayName:name, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+    Cloud.profile = { ...(Cloud.profile || {}), displayName:name };
+    Auth.setSession({ uid:Cloud.user.uid, display:name, guest:false });
+    nameViewMode = null;
+    $('authOverlay').classList.remove('show');
+    notify(`WELCOME, ${name.toUpperCase()}`);
+  }catch(e){
+    console.warn(e);
+    $('nameError').textContent = 'Could not save your name. Check your connection and Firestore rules.';
+  }finally{ btn.disabled = false; }
+}
+
+async function cancelNameView(){
+  if(nameViewMode === 'first'){
+    nameViewMode = null;
+    try{ await Cloud.auth.signOut(); }catch(e){}
+    openAuth('out');
+  } else {
+    nameViewMode = null;
+    openAuth('in');
+  }
+}
+
+async function signOut(){
+  try{ if(Cloud.ready) await Cloud.auth.signOut(); }catch(e){}
+  Auth.clear();
+  openAuth('out');
+}
+
+function playAsGuest(){
+  Auth.guest($('guestName').value);
+  $('authOverlay').classList.remove('show');
+  notify(`WELCOME, ${Auth.name().toUpperCase()}`);
+}
+
+/* ================= Leaderboard ================= */
 const Leaderboard = {
   all(){ return Store.get('tt_leaderboard', []); },
   add(entry){
@@ -688,38 +771,73 @@ const Leaderboard = {
   },
   isMine(e){
     if(!Auth.current) return false;
-    if(Auth.current.username) return e.username === Auth.current.username;
-    return !e.username && e.player === Auth.current.display;
+    if(Auth.current.uid) return e.uid === Auth.current.uid;
+    return !e.uid && e.player === Auth.current.display;
   },
   best(mode){ return this.all().filter(e => e.mode === mode && this.isMine(e)).reduce((m,e) => Math.max(m, e.score), 0); }
 };
 
+async function postGlobalScore(entry){
+  const uid = Cloud.user.uid;
+  const col = entry.mode === 'coop' ? 'scores_coop' : 'scores_solo';
+  await Cloud.db.collection(col).add({
+    uid, name:entry.player, score:entry.score, cleared:entry.cleared, team:entry.team,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  const key = 'best_' + entry.mode;
+  const prev = (Cloud.profile && Cloud.profile[key]) || 0;
+  if(entry.score > prev){
+    await Cloud.db.collection('users').doc(uid).set({ [key]: entry.score }, { merge:true });
+    if(Cloud.profile) Cloud.profile[key] = entry.score;
+  }
+}
+
+async function loadGlobal(mode){
+  const col = mode === 'coop' ? 'scores_coop' : 'scores_solo';
+  const snap = await Cloud.db.collection(col).orderBy('score', 'desc').limit(25).get();
+  return snap.docs.map(d => {
+    const x = d.data();
+    return { player:x.name, score:x.score, cleared:x.cleared, team:x.team || [], uid:x.uid,
+             date: x.createdAt ? x.createdAt.toMillis() : now() };
+  });
+}
+
 let roundRecorded = false;
+let saveNote = '';
 function currentMode(){ return (inMultiplayerMode && players.length > 1) ? 'coop' : 'solo'; }
+
 function recordRound(){
   if(roundRecorded || score <= 0) return;
   roundRecorded = true;
   const mode = currentMode();
-  Leaderboard.add({
+  const entry = {
     player: inMultiplayerMode ? myPlayerName : Auth.name(),
-    username: Auth.isSignedIn() ? Auth.current.username : null,
+    uid: Auth.isSignedIn() ? Auth.current.uid : null,
     score, cleared, mode,
     team: mode === 'coop' ? players.map(p => p.name) : [],
     date: now()
-  });
+  };
+  Leaderboard.add(entry);
+
+  if(Cloud.ready && Auth.isSignedIn()){
+    saveNote = 'Saved on this device. Saving to the global leaderboard...';
+    postGlobalScore(entry)
+      .then(() => { saveNote = 'Saved on this device and to the global leaderboard.'; refreshGoSaved(); })
+      .catch(e => { console.warn(e); saveNote = 'Saved on this device. The global save failed, so check your connection.'; refreshGoSaved(); });
+  } else {
+    saveNote = Cloud.ready ? 'Saved on this device. Sign in with Google to post global scores.' : 'Saved on this device.';
+  }
 }
+function refreshGoSaved(){ $('goSaved').textContent = score > 0 ? saveNote : 'A score of 0 is not saved.'; }
 
 let lbTab = 'solo';
-function renderLeaderboard(){
-  document.querySelectorAll('[data-lbtab]').forEach(b => b.classList.toggle('active', b.dataset.lbtab === lbTab));
-  const list = Leaderboard.all().filter(e => e.mode === lbTab).slice(0, 25);
-  $('lbBest').textContent = `Your best ${lbTab === 'coop' ? 'co-op' : 'solo'} score: ${Leaderboard.best(lbTab)}`;
-  if(!list.length){
-    $('lbBody').innerHTML = '<p class="sub">No scores yet. Finish or restart a game to log one.</p>';
-    return;
-  }
+let lbScope = Store.get('tt_lbscope', 'local');
+let lbRequest = 0;
+
+function drawLbTable(list, isMine, emptyText){
+  if(!list.length){ $('lbBody').innerHTML = `<p class="sub">${emptyText}</p>`; return; }
   $('lbBody').innerHTML = `<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th>Score</th><th>Names</th><th>Date</th></tr></thead><tbody>${
-    list.map((e,i) => `<tr class="${Leaderboard.isMine(e) ? 'mine' : ''}">
+    list.map((e,i) => `<tr class="${isMine(e) ? 'mine' : ''}">
       <td>${i+1}</td>
       <td><span class="pname">${escapeHtml(e.player)}</span>${e.team && e.team.length ? `<span class="lb-team">Team: ${e.team.map(escapeHtml).join(', ')}</span>` : ''}</td>
       <td><strong>${e.score}</strong></td>
@@ -727,6 +845,40 @@ function renderLeaderboard(){
       <td>${new Date(e.date).toLocaleDateString()}</td>
     </tr>`).join('')
   }</tbody></table>`;
+}
+
+async function renderLeaderboard(){
+  document.querySelectorAll('[data-lbtab]').forEach(b => b.classList.toggle('active', b.dataset.lbtab === lbTab));
+  document.querySelectorAll('[data-lbscope]').forEach(b => b.classList.toggle('active', b.dataset.lbscope === lbScope));
+  $('btnLbClear').style.display = lbScope === 'local' ? '' : 'none';
+  const modeLabel = lbTab === 'coop' ? 'co-op' : 'solo';
+  const req = ++lbRequest;
+
+  if(lbScope === 'local'){
+    $('lbBest').textContent = `Your best ${modeLabel} score on this device: ${Leaderboard.best(lbTab)}`;
+    drawLbTable(Leaderboard.all().filter(e => e.mode === lbTab).slice(0, 25), e => Leaderboard.isMine(e),
+      'No scores yet. Finish or restart a game to log one.');
+    return;
+  }
+
+  if(!Cloud.ready){
+    $('lbBest').textContent = '';
+    $('lbBody').innerHTML = '<p class="sub">The global leaderboard is not set up yet. Add your Firebase settings to FIREBASE_CONFIG in the code.</p>';
+    return;
+  }
+  $('lbBest').textContent = Auth.isSignedIn()
+    ? `Your best global ${modeLabel} score: ${(Cloud.profile && Cloud.profile['best_' + lbTab]) || 0}`
+    : 'Sign in with Google to post your scores here.';
+  $('lbBody').innerHTML = '<p class="sub">Loading global scores...</p>';
+  try{
+    const list = await loadGlobal(lbTab);
+    if(req !== lbRequest) return;
+    drawLbTable(list, e => Cloud.user && e.uid === Cloud.user.uid, 'No global scores yet. Be the first!');
+  }catch(e){
+    if(req !== lbRequest) return;
+    console.warn(e);
+    $('lbBody').innerHTML = '<p class="sub">Could not load global scores. Check your connection and Firestore rules.</p>';
+  }
 }
 function openLeaderboard(tab){ if(tab) lbTab = tab; renderLeaderboard(); $('lbOverlay').classList.add('show'); }
 
@@ -907,8 +1059,7 @@ function notify(msg){
   el._t = setTimeout(() => el.classList.remove('show'), 1400);
 }
 function showFloatMessage(count, hasCross){
-  let text = count > 1 ? `COMBO ×${count}!` + (hasCross ? ' + CROSS BONUS' : '') : (hasCross ? 'CROSS MATCH!' : 'NAME CLEARED!');
-  notify(text);
+  notify(count > 1 ? `COMBO ×${count}!` + (hasCross ? ' + CROSS BONUS' : '') : (hasCross ? 'CROSS MATCH!' : 'NAME CLEARED!'));
 }
 
 /* ================= Core game ================= */
@@ -976,7 +1127,7 @@ function afterPlacement(){
   if(!hasEmptyCell()){
     gameOver = true;
     renderAll();
-    pushState();          // clients now receive the final board (fixes the last-tile bug)
+    pushState();          // clients receive the final board
     onGameOver();
     return;
   }
@@ -1128,7 +1279,7 @@ function showGameOverModal(){
     btnRestart.textContent = 'Play Again';
     btnGoLeave.style.display = 'none';
   }
-  $('goSaved').textContent = score > 0 ? 'Score saved to the leaderboard on this device.' : 'A score of 0 is not saved.';
+  refreshGoSaved();
   goOverlay.classList.add('show');
 }
 
@@ -1187,7 +1338,9 @@ function openLobby(){
   const input = $('inputPlayerName');
   input.value = Auth.current ? Auth.current.display : '';
   input.readOnly = Auth.isSignedIn();
-  $('nameHint').textContent = Auth.isSignedIn() ? 'Signed in — your account name is used.' : 'Tip: sign in to save scores under an account.';
+  $('nameHint').textContent = Auth.isSignedIn()
+    ? 'Signed in — your account name is used. Change it from the account button.'
+    : 'Tip: sign in with Google to save your name and post global scores.';
   lobbyOverlay.classList.add('show');
 }
 
@@ -1204,7 +1357,7 @@ function enterRoomUI(){
 }
 
 function exitRoomUI(){
-  btnModeToggle.textContent = 'Create/Join Lobby';
+  btnModeToggle.textContent = 'Play Together';
   btnModeToggle.classList.remove('leave-btn');
   roomCodeBadge.style.display = 'none';
   lobbySetupView.style.display = 'block';
@@ -1686,24 +1839,31 @@ $('btnGoBoard').addEventListener('click', () => openLeaderboard(currentMode()));
 
 $('btnLeaderboard').addEventListener('click', () => openLeaderboard());
 document.querySelectorAll('[data-lbtab]').forEach(b => b.addEventListener('click', () => { lbTab = b.dataset.lbtab; renderLeaderboard(); }));
+document.querySelectorAll('[data-lbscope]').forEach(b => b.addEventListener('click', () => {
+  lbScope = b.dataset.lbscope; Store.set('tt_lbscope', lbScope); renderLeaderboard();
+}));
 $('btnLbClose').addEventListener('click', () => $('lbOverlay').classList.remove('show'));
 $('btnLbClear').addEventListener('click', () => {
   if(confirm('Delete all leaderboard scores saved on this device?')){ Store.set('tt_leaderboard', []); renderLeaderboard(); }
 });
 
-$('btnAccount').addEventListener('click', openAuth);
-$('btnSignIn').addEventListener('click', () => authAction('in'));
-$('btnSignUp').addEventListener('click', () => authAction('up'));
-$('btnGuest').addEventListener('click', () => authAction('guest'));
-$('authPass').addEventListener('keydown', e => { if(e.key === 'Enter') authAction('in'); });
-$('btnSignOut').addEventListener('click', () => { Auth.signOut(); openAuth(); });
+$('btnAccount').addEventListener('click', () => openAuth());
+$('btnGoogle').addEventListener('click', signInWithGoogle);
+$('btnGuest').addEventListener('click', playAsGuest);
+$('guestName').addEventListener('keydown', e => { if(e.key === 'Enter') playAsGuest(); });
+$('btnNameSave').addEventListener('click', saveProfileName);
+$('profileName').addEventListener('keydown', e => { if(e.key === 'Enter') saveProfileName(); });
+$('btnNameCancel').addEventListener('click', cancelNameView);
+$('btnChangeName').addEventListener('click', () => { nameViewMode = 'change'; openAuth('name'); });
+$('btnSignOut').addEventListener('click', signOut);
 $('btnAuthClose').addEventListener('click', () => $('authOverlay').classList.remove('show'));
 
-$('btnSfx').addEventListener('click', () => Sound.toggleSfx());
-$('btnMusic').addEventListener('click', () => Sound.toggleMusic());
-
 document.querySelectorAll('.overlay').forEach(ov => {
-  ov.addEventListener('click', e => { if(e.target === ov && ov !== lobbyOverlay) ov.classList.remove('show'); });
+  ov.addEventListener('click', e => {
+    if(e.target !== ov || ov === lobbyOverlay) return;
+    if(ov.id === 'authOverlay' && nameViewMode === 'first') return; // new Google users must pick a name
+    ov.classList.remove('show');
+  });
 });
 
 window.addEventListener('keydown', e => {
@@ -1713,11 +1873,14 @@ window.addEventListener('keydown', e => {
 });
 
 /* ================= Start ================= */
+initCloud();
+// Clear old local-password sessions from the previous version, or Google sessions when Firebase is off.
+if(Auth.current && !Auth.current.guest && (!Cloud.ready || !Auth.current.uid)) Auth.clear();
 updateSoundButtons();
 renderAccountButton();
 resetRoundState();
 renderAll();
-if(!Auth.current) openAuth();
+if(!Auth.current) openAuth('out');
 </script>
 </body>
 </html>
